@@ -1,0 +1,16 @@
+statements:
+  - Effect: Allow
+    Action:
+      - dynamodb:PutItem
+      - dynamodb:Query
+      - dynamodb:GetItem
+      - dynamodb:DeleteItem
+      - dynamodb:UpdateItem
+    Resource:
+      - !GetAtt MainTable.Arn
+      - !Sub '${MainTable.Arn}/index/*'
+  - Effect: Allow
+    Action:
+      - cognito-idp:AdminDeleteUser
+      - cognito-idp:AdminAddUserToGroup
+    Resource: !GetAtt UserPool.Arn

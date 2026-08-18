@@ -1,0 +1,32 @@
+getMe:
+  handler: src/main/functions/accounts/getMe.handler
+  events:
+    - httpApi:
+        path: /accounts/me
+        method: GET
+        authorizer:
+          name: CognitoAuthorizer
+listAccounts:
+  handler: src/main/functions/accounts/listAccounts.handler
+  events:
+    - httpApi:
+        path: /accounts
+        method: GET
+        authorizer:
+          name: CognitoAuthorizer
+updateAccount:
+  handler: src/main/functions/accounts/updateAccount.handler
+  events:
+    - httpApi:
+        path: /accounts/{accountId}
+        method: PUT
+        authorizer:
+          name: CognitoAuthorizer
+deleteAccount:
+  handler: src/main/functions/accounts/deleteAccount.handler
+  events:
+    - httpApi:
+        path: /accounts/{accountId}
+        method: DELETE
+        authorizer:
+          name: CognitoAuthorizer

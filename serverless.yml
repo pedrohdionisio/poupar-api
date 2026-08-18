@@ -1,0 +1,41 @@
+org: pedrohdionisio
+service: waitr-api
+
+provider:
+  name: aws
+  region: sa-east-1
+  runtime: nodejs22.x
+  memorySize: 128
+  stage: ${opt:stage, 'dev'}
+  environment: ${file(./sls/config/env.yml)}
+  iam:
+    role: ${file(./sls/config/role.yml)}
+  httpApi:
+    disableDefaultEndpoint: ${env:DISABLE_DEFAULT_APIGW_ENDPOINT, false}
+    authorizers:
+      CognitoAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: !GetAtt UserPool.ProviderURL
+        audience:
+          - !Ref UserPoolClient
+
+package:
+  individually: true
+
+custom:
+  cognito:
+    PoolName: ${self:service}-${self:provider.stage}-UserPool
+
+build:
+  esbuild:
+    configFile: ./esbuild.config.mjs
+
+resources:
+  - ${file(./sls/resources/UserPool.yml)}
+  - ${file(./sls/resources/MainTable.yml)}
+  - ${file(./sls/resources/APIGWCustomDomain.yml)}
+
+functions:
+  - ${file(./sls/functions/auth.yml)}
+  - ${file(./sls/functions/accounts.yml)}
