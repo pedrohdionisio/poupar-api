@@ -1,5 +1,5 @@
 org: pedrohdionisio
-service: waitr-api
+service: poupar-api
 
 provider:
   name: aws

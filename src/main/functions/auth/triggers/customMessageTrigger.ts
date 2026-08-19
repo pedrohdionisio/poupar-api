@@ -1,6 +1,6 @@
 import ForgotPassword from '@infra/emails/templates/ForgotPassword';
-import { render } from '@react-email/render';
 import { CustomMessageTriggerEvent } from 'aws-lambda';
+import { render } from 'react-email';
 
 export async function handler(event: CustomMessageTriggerEvent) {
 	if (event.triggerSource === 'CustomMessage_ForgotPassword') {

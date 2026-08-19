@@ -1,8 +1,17 @@
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
 minimumReleaseAgeExclude:
-  - '@aws-sdk/client-cognito-identity-provider@3.1050.0'
-  - '@aws-sdk/client-dynamodb@3.1050.0'
-  - '@aws-sdk/lib-dynamodb@3.1050.0'
+  - '@aws-sdk/client-cognito-identity-provider@3.1050.0 || 3.1112.0'
+  - '@aws-sdk/client-dynamodb@3.1050.0 || 3.1112.0'
+  - '@aws-sdk/lib-dynamodb@3.1050.0 || 3.1112.0'
   - '@types/node@25.9.1'
   - '@types/react@19.2.15'
+  - '@biomejs/biome@2.5.9'
+  - '@biomejs/cli-darwin-arm64@2.5.9'
+  - '@biomejs/cli-darwin-x64@2.5.9'
+  - '@biomejs/cli-linux-arm64-musl@2.5.9'
+  - '@biomejs/cli-linux-arm64@2.5.9'
+  - '@biomejs/cli-linux-x64-musl@2.5.9'
+  - '@biomejs/cli-linux-x64@2.5.9'
+  - '@biomejs/cli-win32-arm64@2.5.9'
+  - '@biomejs/cli-win32-x64@2.5.9'

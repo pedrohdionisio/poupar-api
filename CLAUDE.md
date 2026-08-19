@@ -1,4 +1,4 @@
-# waitr-api
+# poupar-api
 
 Serverless REST + WebSocket API (AWS Lambda, Node.js, TypeScript strict).
 Clean Architecture: `application` → `infra` → `kernel` → `main`.

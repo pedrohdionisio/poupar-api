@@ -11,22 +11,24 @@
     "noImplicitOverride": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "baseUrl": ".",
+    "types": [
+      "node"
+    ],
     "paths": {
       "@application/*": [
-        "src/application/*"
+        "./src/application/*"
       ],
       "@kernel/*": [
-        "src/kernel/*"
+        "./src/kernel/*"
       ],
       "@main/*": [
-        "src/main/*"
+        "./src/main/*"
       ],
       "@shared/*": [
-        "src/shared/*"
+        "./src/shared/*"
       ],
       "@infra/*": [
-        "src/infra/*"
+        "./src/infra/*"
       ]
     }
   }

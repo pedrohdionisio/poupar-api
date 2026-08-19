@@ -1,10 +1,6 @@
-import { Column } from '@react-email/column';
-import { Heading } from '@react-email/heading';
-import { Html } from '@react-email/html';
-import { Row } from '@react-email/row';
-import { Section } from '@react-email/section';
 // biome-ignore lint/correctness/noUnusedImports: <>
 import React from 'react';
+import { Column, Heading, Html, Row, Section } from 'react-email';
 import { TailwindConfig } from '../components/TailwindConfig';
 
 export interface IForgotPasswordProps {
