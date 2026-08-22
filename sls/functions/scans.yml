@@ -1,0 +1,8 @@
+getScan:
+  handler: src/main/functions/scans/getScan.handler
+  events:
+    - httpApi:
+        path: /scans/{scanId}
+        method: GET
+        authorizer:
+          name: CognitoAuthorizer

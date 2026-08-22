@@ -44,3 +44,5 @@ functions:
   - ${file(./sls/functions/purchases.yml)}
   - ${file(./sls/functions/receipts.yml)}
   - ${file(./sls/functions/accountProducts.yml)}
+  - ${file(./sls/functions/pricePoints.yml)}
+  - ${file(./sls/functions/scans.yml)}

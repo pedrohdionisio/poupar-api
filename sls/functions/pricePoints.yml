@@ -1,0 +1,8 @@
+listPricePoints:
+  handler: src/main/functions/pricePoints/listPricePoints.handler
+  events:
+    - httpApi:
+        path: /price-points
+        method: GET
+        authorizer:
+          name: CognitoAuthorizer
