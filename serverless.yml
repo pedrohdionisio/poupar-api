@@ -40,3 +40,4 @@ functions:
   - ${file(./sls/functions/auth.yml)}
   - ${file(./sls/functions/accounts.yml)}
   - ${file(./sls/functions/merchants.yml)}
+  - ${file(./sls/functions/accountMerchants.yml)}

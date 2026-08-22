@@ -1,6 +1,6 @@
 ---
 name: new-module
-description: Cria um módulo novo do single-table de ponta a ponta (entity + item + repository, e endpoints se declarados) a partir da linha da planilha de modelagem colada no prompt. Use quando o pedido for criar uma entidade nova do Poupar — Merchant, Purchase, Receipt, Scan, PricePoint, AccountProduct, AccountMerchant, GlobalPricePoint — ou qualquer entidade descrita por PK/SK/GSI + atributos.
+description: Cria um módulo novo do single-table de ponta a ponta — entity + item + repository + endpoints, sempre os quatro — a partir da linha da planilha de modelagem colada no prompt. Use quando o pedido for criar uma entidade nova do Poupar — Merchant, Purchase, Receipt, Scan, PricePoint, AccountProduct, AccountMerchant, GlobalPricePoint — ou qualquer entidade descrita por PK/SK/GSI + atributos.
 ---
 
 # Novo módulo
@@ -8,7 +8,16 @@ description: Cria um módulo novo do single-table de ponta a ponta (entity + ite
 Gera um módulo completo seguindo o molde de `accounts`, que é o único módulo full-stack do repo e a
 **referência de formatação real** — as rules descrevem a regra, `accounts` mostra o formato.
 
+**O módulo sai sempre completo: entity + item + repository + endpoints.** Não existe entrega
+parcial "só da camada de dados" — spec sem endpoint declarado significa derivar o CRUD dos access
+patterns, não parar antes deles. Ver Fase 5.
+
 Leia antes de gerar: `.claude/rules/single-table.md`, `entities.md`, `items.md`, `repositories.md`.
+
+**Fonte de consulta para dúvida de modelagem**: o artifact do single-table —
+https://claude.ai/code/artifact/8a57201b-f6a8-4bf6-8f92-e132102dd037 — tem o desenho completo das
+entidades do Poupar, com access patterns, chaves e atributos de cada uma. Consulte antes de
+perguntar qualquer coisa ao usuário; ele resolve a maioria das lacunas do spec colado.
 
 ## Fase 1 — Parse do spec
 
@@ -26,18 +35,31 @@ Extraia: nome da entidade, cada chave com seu template literal exato, cada atrib
 anotação (`ULID`, `snapshot`, `null`, `enum`), enums a declarar no namespace, e — se presentes —
 access patterns e endpoints.
 
-**Pergunte antes de gerar** quando faltar informação que muda o código:
+**Quando faltar informação que muda o código**, nesta ordem:
+
+1. **Consulte o artifact** — https://claude.ai/code/artifact/8a57201b-f6a8-4bf6-8f92-e132102dd037 —
+   e o repo (entidades irmãs, rules). A planilha colada é um resumo; o artifact é o desenho completo.
+2. **Só então pergunte ao usuário**, se a dúvida persistir depois de consultar.
+
+O que tipicamente falta:
 
 - Tipo de um atributo ambíguo, ou se um campo é mutável (sem `readonly`) ou imutável.
-- Access patterns, se o spec não os trouxer — eles definem quais métodos o repositório ganha.
-- Se um enum referenciado (`Merchant.Category`) já existe em outra entidade ou precisa ser criado.
+- Access patterns, se o spec não os trouxer — eles definem quais métodos o repositório ganha, e
+  estão no artifact para toda entidade do Poupar.
+- Se um enum referenciado (`Merchant.Category`) já existe em outra entidade ou precisa ser criado —
+  isso se responde com um grep, nunca com uma pergunta.
+- Quais endpoints o módulo expõe, já que eles saem sempre (Fase 5).
 
-Não invente atributo, chave nem método que não esteja no spec.
+Não invente atributo, chave nem método que não esteja no spec ou no artifact.
 
 ## Fase 2 — Confirmar o plano de arquivos
 
-Antes de escrever, liste os caminhos exatos que serão criados e os métodos do repositório derivados
-de cada access pattern. Aguarde o OK — é mais barato abortar aqui.
+Antes de escrever, liste os caminhos exatos que serão criados, os métodos do repositório derivados
+de cada access pattern **e as rotas dos endpoints** (método HTTP, path, statusCode). Aguarde o OK —
+é mais barato abortar aqui.
+
+Se algum item do plano veio do artifact em vez do spec colado, diga qual — o usuário precisa saber
+o que você inferiu.
 
 ## Fase 3 — Camada de dados
 
@@ -69,13 +91,24 @@ Repositório retorna `null` quando não acha — nunca lança.
 
 ## Fase 5 — Endpoints
 
-Só se o spec declarar. Para cada endpoint, siga integralmente a skill `new-endpoint` (schema → use
-case → controller → lambda → entrada no `sls` → request no Yaak). Se o spec não trouxer endpoint,
-pare na Fase 4 e diga que a camada de dados está pronta para receber endpoints via `/new-endpoint`.
+**Sempre gerados.** Para cada endpoint, siga integralmente a skill `new-endpoint` (schema → use
+case → controller → lambda → entrada no `sls` → request no Yaak).
+
+Quando o spec não declarar endpoint, derive-os — não pare na Fase 4 nem devolva a camada de dados
+sozinha:
+
+1. Procure os endpoints da entidade no artifact.
+2. Se o artifact não os trouxer, derive do CRUD sobre os access patterns já confirmados: um `GET`
+   de listagem por partição, um `GET` por chave, um `PUT` para os campos que o usuário edita, um
+   `DELETE`. Rota privada por padrão, `accountId` vindo do token e nunca do path.
+3. Não gere endpoint para access pattern que não é do usuário — agregado alimentado por stream ou
+   fila (`applyPurchase`, contadores derivados) não vira rota HTTP.
+
+Traga essa derivação no plano da Fase 2 para o usuário confirmar antes de escrever.
 
 ## Fase 6 — Wiring
 
-Só quando houver lambda:
+Como os endpoints saem sempre, esta fase também:
 
 - Criar `sls/functions/<módulo>.yml`.
 - Apendar `  - ${file(./sls/functions/<módulo>.yml)}` sob `functions:` no `serverless.yml`.
