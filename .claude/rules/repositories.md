@@ -41,10 +41,17 @@ export namespace ProductRepository {
 
 ## DynamoDB patterns
 
-- PK global de uma entidade: ex. `'PRODUCTS'`
-- SK individual: ex. `` `PRODUCT#${id}` ``
-- GSI1PK/GSI1SK seguem o mesmo padrão definido no Item mapper.
-- Preços são armazenados como inteiros (centavos) — a conversão acontece no Item mapper.
+As convenções de chave estão em `.claude/rules/single-table.md` — leia antes de escrever qualquer
+query. Em resumo:
+
+- PK é a partição do **dono** do dado (`` `ACCOUNT#${accountId}` ``) ou a chave natural da entidade
+  global (`` `MERCHANT#${cnpj}` ``). Nunca uma partição fixa que recebe todo write.
+- SK carrega o prefixo do tipo mais o discriminador: `` `PURCHASE#${purchasedAt}#${id}` ``.
+- Listagem dentro de uma partição usa `begins_with(SK, 'PREFIX#')`; filtro por período usa
+  `BETWEEN` sobre a data embutida no SK.
+- GSI1PK/GSI1SK seguem o padrão definido no Item mapper. `IndexName` só aparece no repositório,
+  via `QueryCommand({ IndexName: 'GSI1', ... })`.
+- Preços são inteiros em centavos — a conversão acontece no Item mapper.
 
 ## Proibido
 

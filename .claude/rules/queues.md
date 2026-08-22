@@ -4,6 +4,11 @@ globs: src/application/queues/**
 
 # Queue Consumers
 
+> **Infra ainda não implementada.** Não existem hoje no repo: `src/application/queues/**`,
+> `IQueueConsumer`, `lambdaSQSAdapter`, nem fila SQS no `serverless.yml`. Esta rule descreve o
+> formato-alvo para quando o fluxo de importação assíncrona for construído — **não importe esses
+> símbolos até que existam**. Ao implementar, crie primeiro o contrato e o adapter.
+
 Consumers processam mensagens SQS — implementam `IQueueConsumer<TMessage>`.
 
 ## Estrutura obrigatória

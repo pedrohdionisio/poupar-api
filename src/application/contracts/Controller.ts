@@ -1,3 +1,4 @@
+import { Account } from '@application/entities/Account';
 import { Forbbiden } from '@application/errors/http/Forbbiden';
 import { Unauthorized } from '@application/errors/http/Unauthorized';
 import { isAdminOnly } from '@kernel/decorators/AdminOnly';
@@ -43,7 +44,7 @@ export abstract class Controller<TType extends RouteType, TBody = undefined> {
 
 	private validatePrivateRoute(
 		headers: Controller.Request<TType>['headers'],
-		role: 'ADMIN' | 'WAITER' | 'CHEF' = 'ADMIN'
+		role: Account.Role = Account.Role.ADMIN
 	) {
 		if (!headers.authorization) {
 			throw new Unauthorized('Invalid token.');
@@ -56,7 +57,7 @@ export abstract class Controller<TType extends RouteType, TBody = undefined> {
 
 		const userRoles: string[] = claims['cognito:groups'] ?? [];
 
-		if (role === 'ADMIN' && !userRoles.includes('admins')) {
+		if (role === Account.Role.ADMIN && !userRoles.includes('admins')) {
 			throw new Forbbiden("You don't have permission to perform this action.");
 		}
 	}

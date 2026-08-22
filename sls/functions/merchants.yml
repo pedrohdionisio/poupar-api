@@ -1,0 +1,40 @@
+listMerchants:
+  handler: src/main/functions/merchants/listMerchants.handler
+  events:
+    - httpApi:
+        path: /merchants
+        method: GET
+        authorizer:
+          name: CognitoAuthorizer
+getMerchant:
+  handler: src/main/functions/merchants/getMerchant.handler
+  events:
+    - httpApi:
+        path: /merchants/{cnpj}
+        method: GET
+        authorizer:
+          name: CognitoAuthorizer
+createMerchant:
+  handler: src/main/functions/merchants/createMerchant.handler
+  events:
+    - httpApi:
+        path: /merchants
+        method: POST
+        authorizer:
+          name: CognitoAuthorizer
+updateMerchant:
+  handler: src/main/functions/merchants/updateMerchant.handler
+  events:
+    - httpApi:
+        path: /merchants/{cnpj}
+        method: PUT
+        authorizer:
+          name: CognitoAuthorizer
+deleteMerchant:
+  handler: src/main/functions/merchants/deleteMerchant.handler
+  events:
+    - httpApi:
+        path: /merchants/{cnpj}
+        method: DELETE
+        authorizer:
+          name: CognitoAuthorizer

@@ -9,7 +9,9 @@ export class AccountItem {
 			PK: AccountItem.getPK(),
 			SK: AccountItem.getSK({ id: this.attr.id }),
 			GSI1PK: AccountItem.getGSI1PK(),
-			GSI1SK: AccountItem.getGSI1SK({ role: this.attr.role })
+			GSI1SK: AccountItem.getGSI1SK({ role: this.attr.role }),
+			GSI2PK: AccountItem.getGSI2PK({ email: this.attr.email }),
+			GSI2SK: AccountItem.getGSI2SK({ email: this.attr.email })
 		};
 	}
 
@@ -56,6 +58,18 @@ export class AccountItem {
 	}: AccountItem.GetGSI1SKParams): AccountItem['keys']['GSI1SK'] {
 		return `ACCOUNT#${role}`;
 	}
+
+	static getGSI2PK({
+		email
+	}: AccountItem.GetGSI2PKParams): AccountItem['keys']['GSI2PK'] {
+		return `ACCOUNT#${email}`;
+	}
+
+	static getGSI2SK({
+		email
+	}: AccountItem.GetGSI2SKParams): AccountItem['keys']['GSI2SK'] {
+		return `ACCOUNT#${email}`;
+	}
 }
 
 export namespace AccountItem {
@@ -72,6 +86,8 @@ export namespace AccountItem {
 		SK: `ACCOUNT#${string}`;
 		GSI1PK: 'ACCOUNTS';
 		GSI1SK: `ACCOUNT#${string}`;
+		GSI2PK: `ACCOUNT#${string}`;
+		GSI2SK: `ACCOUNT#${string}`;
 	};
 
 	export type Attributes = {
@@ -94,5 +110,13 @@ export namespace AccountItem {
 
 	export type GetGSI1SKParams = {
 		role: Account.Role;
+	};
+
+	export type GetGSI2PKParams = {
+		email: string;
+	};
+
+	export type GetGSI2SKParams = {
+		email: string;
 	};
 }

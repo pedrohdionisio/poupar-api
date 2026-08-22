@@ -9,22 +9,33 @@ Controllers são HTTP handlers — recebem request validado e delegam ao use cas
 ## Estrutura obrigatória
 
 ```typescript
-@Schema({ body: mySchema })
+@Schema({ params: updateProductParamsSchema, body: updateProductBodySchema })
 @Injectable()
 @AdminOnly()
-export class CreateProductController extends Controller<'private', CreateProductController.Response> {
-  constructor(private readonly createProductUseCase: CreateProductUseCase) {
-    super();
-  }
+export class UpdateProductController extends Controller<
+	'private',
+	UpdateProductController.Response
+> {
+	constructor(private readonly updateProductUseCase: UpdateProductUseCase) {
+		super();
+	}
 
-  protected override async handle({ body }: Controller.Request<'private', Params>): Promise<Controller.Response<CreateProductController.Response>> {
-    const result = await this.createProductUseCase.execute(body);
-    return { statusCode: 201, body: result };
-  }
+	protected override async handle({
+		params,
+		body
+	}: Controller.Request<
+		'private',
+		UpdateProductBody,
+		UpdateProductParams
+	>): Promise<Controller.Response<UpdateProductController.Response>> {
+		await this.updateProductUseCase.execute({ ...body, id: params.productId });
+
+		return { statusCode: 200 };
+	}
 }
 
-export namespace CreateProductController {
-  export type Response = { id: string };
+export namespace UpdateProductController {
+	export type Response = null;
 }
 ```
 
@@ -39,8 +50,12 @@ Aplique nesta sequência (decorators executam de baixo para cima):
 ## Regras
 
 - O método `handle` é o único método implementado — sem lógica de negócio além da chamada ao use case.
-- Use `Controller.Request<'private', TBody, TParams, TQueryParams>` para tipar o parâmetro de `handle`.
-- Declare schemas Zod em arquivo separado `schemas/verbNounSchema.ts` na mesma pasta.
+- `protected override async handle` — o `override` é obrigatório (`noImplicitOverride: true` no tsconfig).
+- Tipe o parâmetro com `Controller.Request<TType, TBody, TParams, TQueryParams>` **nessa ordem**.
+  Endpoint sem body e com params passa `Record<string, never>` na posição de `TBody`, ou omite os
+  genéricos quando não lê nenhuma das partes.
+- Declare schemas Zod em arquivo separado `schemas/verbNounSchema.ts` na mesma pasta — ver
+  `.claude/rules/schemas.md`.
 - Exporte o tipo `Response` no namespace da controller.
 - Rotas públicas usam `Controller<'public', TResponse>` e `accountId` será `null`.
 - Rotas privadas sem restrição de role não precisam de `@AdminOnly()`.

@@ -22,8 +22,7 @@ export class Account {
 export namespace Account {
 	export enum Role {
 		ADMIN = 'ADMIN',
-		CHEF = 'CHEF',
-		WAITER = 'WAITER'
+		USER = 'USER'
 	}
 
 	export type Attributes = {

@@ -4,6 +4,11 @@ globs: src/application/websocket/**
 
 # WebSocket Handlers
 
+> **Infra ainda não implementada.** Não existem hoje no repo: `src/application/websocket/**`,
+> `IWebSocketHandler`, `lambdaWebSocketAdapter`, `ConnectionRepository`, `WebSocketGateway`, nem API
+> Gateway WebSocket no `serverless.yml`. Esta rule descreve o formato-alvo para quando o broadcast de
+> status do scan for construído — **não importe esses símbolos até que existam**.
+
 Handlers de WebSocket gerenciam conexões e eventos em tempo real — implementam `IWebSocketHandler`.
 
 ## Estrutura obrigatória
