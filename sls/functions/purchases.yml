@@ -1,0 +1,32 @@
+listPurchases:
+  handler: src/main/functions/purchases/listPurchases.handler
+  events:
+    - httpApi:
+        path: /purchases
+        method: GET
+        authorizer:
+          name: CognitoAuthorizer
+createPurchase:
+  handler: src/main/functions/purchases/createPurchase.handler
+  events:
+    - httpApi:
+        path: /purchases
+        method: POST
+        authorizer:
+          name: CognitoAuthorizer
+updatePurchase:
+  handler: src/main/functions/purchases/updatePurchase.handler
+  events:
+    - httpApi:
+        path: /purchases/{purchasedAt}/{purchaseId}
+        method: PUT
+        authorizer:
+          name: CognitoAuthorizer
+deletePurchase:
+  handler: src/main/functions/purchases/deletePurchase.handler
+  events:
+    - httpApi:
+        path: /purchases/{purchasedAt}/{purchaseId}
+        method: DELETE
+        authorizer:
+          name: CognitoAuthorizer

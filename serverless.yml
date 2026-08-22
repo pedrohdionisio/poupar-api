@@ -41,3 +41,5 @@ functions:
   - ${file(./sls/functions/accounts.yml)}
   - ${file(./sls/functions/merchants.yml)}
   - ${file(./sls/functions/accountMerchants.yml)}
+  - ${file(./sls/functions/purchases.yml)}
+  - ${file(./sls/functions/receipts.yml)}

@@ -69,16 +69,44 @@ Ver `.claude/rules/single-table.md`.
 
 ## Saída
 
-Findings ordenados por severidade, cada um com `arquivo:linha`, o que está errado e por quê. Formato:
+Duas partes, nesta ordem.
+
+**1. Resumo** — uma linha por finding, agrupada por severidade, com `arquivo:linha` e a falha em
+meia frase. É o que o chamador mostra ao usuário; tem que se sustentar sozinho, sem o detalhe.
+
+```
+ALTA   PurchaseItem.ts:48 — `discountCents` some no toEntity: volta undefined em toda leitura
+MÉDIA  PurchaseRepository.ts:77 — Query de período sem paginação: trunca em 1 MB sem sinalizar
+BAIXA  listPurchasesSchema.ts:9 — `.refine` sem `path`: o 400 chega com `field` vazio
+```
+
+**2. Detalhe** — cada finding na mesma ordem, com `arquivo:linha`, o que está errado, por que
+importa, e **o trecho do código atual que sustenta o finding**.
+
+O trecho é obrigatório. Sem ele o chamador só consegue repassar a conclusão, e o usuário fica
+escolhendo entre opções sem ver o que está errado no código dele. Cite o código **como está no
+disco** — recortado no essencial, com um comentário marcando o ponto da falha se ajudar. Você não
+corrige nada: não escreva a versão consertada.
 
 ```
 ALTA  src/infra/database/dynamo/items/PurchaseItem.ts:48
       `discountCents` está em Attributes e em fromEntity, mas toEntity não o repassa —
-      o campo volta undefined em toda leitura.
+      o campo volta undefined em toda leitura, e o typecheck não pega porque o
+      construtor da entidade aceita o objeto parcial.
+
+          static toEntity({ item }: PurchaseItem.ToEntityParams) {
+              return new Purchase({
+                  totalCents: item.totalCents,
+                  itemCount: item.itemCount,      // ← discountCents deveria estar aqui
+                  accessKey: item.accessKey,
 ```
 
 Severidades: **ALTA** = quebra em runtime ou perde dado; **MÉDIA** = diverge do spec ou das rules
 sem quebrar; **BAIXA** = estilo, nomenclatura, código antecipado.
+
+Quando um finding depende de uma sequência de eventos (redelivery, corrida entre dois comandos,
+ordem de importação), descreva a sequência concreta que produz a falha — "P1 → P2 → P1 aplica o ADD
+duas vezes" vale mais que "o guard é frágil".
 
 Se não achar nada, diga isso e liste o que você verificou. Não invente finding para parecer útil, e
 não sugira refatoração fora do escopo do que foi gerado.

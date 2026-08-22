@@ -107,7 +107,22 @@ pnpm typecheck
 pnpm biome check
 ```
 
-Depois despache o agent `module-reviewer` escopado aos arquivos deste slice, e relate os findings.
+Depois despache o agent `module-reviewer` escopado aos arquivos deste slice.
+
+Ao receber o resultado, **mostre o resumo antes de perguntar qualquer coisa**:
+
+1. Repasse o resumo do reviewer — uma linha por finding com `arquivo:linha`, agrupado por
+   severidade. Inclua os que você mesmo vai corrigir; o usuário precisa saber o que mudou no
+   código dele.
+2. Para todo finding que muda comportamento, mostre o **trecho de código** que o reviewer citou e
+   a sequência concreta que produz a falha. É a diferença entre o usuário decidir e o usuário
+   chutar.
+3. Só então corrija os de severidade ALTA e pergunte sobre o resto.
+
+`AskUserQuestion` **não substitui o resumo**: numa opção cabe uma descrição curta, não o código nem
+o porquê. Perguntar sem ter mostrado os findings é o erro a evitar aqui.
+
+Descarte finding que você verificou ser falso — mas diga que descartou e por quê, em vez de omitir.
 
 ## Armadilhas
 

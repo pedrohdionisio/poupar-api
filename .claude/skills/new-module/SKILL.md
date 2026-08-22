@@ -154,7 +154,22 @@ Ambos limpos antes de seguir. Biome: tabs, aspas simples, sem trailing comma, se
 ## Fase 9 — Revisar
 
 Despache o agent `module-reviewer` com: o spec original colado pelo usuário e a lista de arquivos
-gerados. Relate os findings ao usuário; corrija os de severidade alta e pergunte sobre o resto.
+gerados.
+
+Ao receber o resultado, **mostre o resumo antes de perguntar qualquer coisa**:
+
+1. Repasse o resumo do reviewer — uma linha por finding com `arquivo:linha`, agrupado por
+   severidade. Inclua os que você mesmo vai corrigir; o usuário precisa saber o que mudou no
+   código dele.
+2. Para todo finding que muda comportamento, mostre o **trecho de código** que o reviewer citou e
+   a sequência concreta que produz a falha. É a diferença entre o usuário decidir e o usuário
+   chutar.
+3. Só então corrija os de severidade ALTA e pergunte sobre o resto.
+
+`AskUserQuestion` **não substitui o resumo**: numa opção cabe uma descrição curta, não o código nem
+o porquê. Perguntar sem ter mostrado os findings é o erro a evitar aqui.
+
+Descarte finding que você verificou ser falso — mas diga que descartou e por quê, em vez de omitir.
 
 ## Armadilhas deste repo
 
