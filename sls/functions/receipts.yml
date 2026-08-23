@@ -6,11 +6,3 @@ getReceipt:
         method: GET
         authorizer:
           name: CognitoAuthorizer
-createReceipt:
-  handler: src/main/functions/receipts/createReceipt.handler
-  events:
-    - httpApi:
-        path: /purchases/{purchaseId}/receipt
-        method: POST
-        authorizer:
-          name: CognitoAuthorizer

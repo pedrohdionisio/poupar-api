@@ -1,10 +1,25 @@
 import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
+import { AccountMerchantRepository } from '@infra/database/dynamo/repositories/AccountMerchantRepository';
+import { AccountProductRepository } from '@infra/database/dynamo/repositories/AccountProductRepository';
+import { PricePointRepository } from '@infra/database/dynamo/repositories/PricePointRepository';
 import { PurchaseRepository } from '@infra/database/dynamo/repositories/PurchaseRepository';
+import { PurchaseTransactionRepository } from '@infra/database/dynamo/repositories/PurchaseTransactionRepository';
+import { ReceiptRepository } from '@infra/database/dynamo/repositories/ReceiptRepository';
 import { Injectable } from '@kernel/decorators/Injectable';
+import { mapInBatches } from '@shared/utils/mapInBatches';
+
+const REBUILD_BATCH_SIZE = 10;
 
 @Injectable()
 export class DeletePurchaseUseCase {
-	constructor(private readonly purchaseRepository: PurchaseRepository) {}
+	constructor(
+		private readonly purchaseRepository: PurchaseRepository,
+		private readonly receiptRepository: ReceiptRepository,
+		private readonly pricePointRepository: PricePointRepository,
+		private readonly accountProductRepository: AccountProductRepository,
+		private readonly accountMerchantRepository: AccountMerchantRepository,
+		private readonly purchaseTransactionRepository: PurchaseTransactionRepository
+	) {}
 
 	async execute(
 		input: DeletePurchaseUseCase.Input
@@ -21,10 +36,78 @@ export class DeletePurchaseUseCase {
 			throw new ResourceNotFound('Purchase not found.');
 		}
 
-		await this.purchaseRepository.delete({
+		const receipt = await this.receiptRepository.getByPurchaseId({
 			accountId: input.accountId,
-			purchasedAt,
-			id: input.id
+			purchaseId: purchase.id
+		});
+
+		const productKeys = [
+			...new Set((receipt?.items ?? []).map((item) => item.productKey))
+		];
+
+		await this.pricePointRepository.deleteMany({
+			accountId: input.accountId,
+			productKeys,
+			purchasedAt: purchase.purchasedAt,
+			purchaseId: purchase.id
+		});
+
+		await mapInBatches({
+			items: productKeys,
+			size: REBUILD_BATCH_SIZE,
+			handler: (productKey) =>
+				this.rebuildAccountProduct({ accountId: input.accountId, productKey })
+		});
+
+		const accountMerchant = await this.accountMerchantRepository.getByCnpj({
+			accountId: input.accountId,
+			cnpj: purchase.merchantCnpj
+		});
+
+		await this.purchaseTransactionRepository.deleteCascade({
+			purchase,
+			revertAccountMerchant: Boolean(accountMerchant)
+		});
+
+		if (accountMerchant && accountMerchant.purchaseCount <= 1) {
+			await this.accountMerchantRepository.deleteIfEmpty({
+				accountId: input.accountId,
+				cnpj: purchase.merchantCnpj
+			});
+		}
+	}
+
+	private async rebuildAccountProduct({
+		accountId,
+		productKey
+	}: DeletePurchaseUseCase.RebuildAccountProductParams): Promise<void> {
+		const series = await this.pricePointRepository.listByProduct({
+			accountId,
+			productKey
+		});
+
+		if (series.length === 0) {
+			await this.accountProductRepository.delete({ accountId, productKey });
+
+			return;
+		}
+
+		const last = series[series.length - 1];
+		const previous = series.length > 1 ? series[series.length - 2] : null;
+		const unitPrices = series.map((pricePoint) => pricePoint.unitPriceCents);
+
+		await this.accountProductRepository.rebuildFromSeries({
+			accountId,
+			productKey,
+			purchaseCount: series.length,
+			minPriceCents: Math.min(...unitPrices),
+			maxPriceCents: Math.max(...unitPrices),
+			lastUnitPriceCents: last.unitPriceCents,
+			previousUnitPriceCents: previous?.unitPriceCents ?? null,
+			lastPurchaseAt: last.purchasedAt,
+			lastMerchantCnpj: last.merchantCnpj,
+			unit: last.unit,
+			lastAppliedPurchaseId: last.purchaseId
 		});
 	}
 }
@@ -37,4 +120,9 @@ export namespace DeletePurchaseUseCase {
 	};
 
 	export type Output = void;
+
+	export type RebuildAccountProductParams = {
+		accountId: string;
+		productKey: string;
+	};
 }

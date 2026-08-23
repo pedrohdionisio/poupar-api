@@ -59,20 +59,55 @@ export class PricePointRepository {
 			itemsByKey.set(`${item.PK}|${item.SK}`, item);
 		}
 
-		const items = [...itemsByKey.values()];
+		const requests = [...itemsByKey.values()].map((item) => ({
+			PutRequest: { Item: item }
+		}));
 
-		for (let index = 0; index < items.length; index += BATCH_WRITE_SIZE) {
+		await this.writeInBatches({ requests });
+	}
+
+	async deleteMany({
+		accountId,
+		productKeys,
+		purchasedAt,
+		purchaseId
+	}: PricePointRepository.DeleteManyParams): Promise<void> {
+		const keysByKey = new Map<string, PricePointRepository.Key>();
+
+		for (const productKey of productKeys) {
+			const key = {
+				PK: PricePointItem.getPK({ accountId, productKey }),
+				SK: PricePointItem.getSK({
+					purchasedAt: purchasedAt.toISOString(),
+					purchaseId
+				})
+			};
+
+			keysByKey.set(`${key.PK}|${key.SK}`, key);
+		}
+
+		const requests = [...keysByKey.values()].map((key) => ({
+			DeleteRequest: { Key: key }
+		}));
+
+		await this.writeInBatches({ requests });
+	}
+
+	private async writeInBatches({
+		requests
+	}: PricePointRepository.WriteInBatchesParams): Promise<void> {
+		for (let index = 0; index < requests.length; index += BATCH_WRITE_SIZE) {
 			await this.writeBatch({
-				items: items.slice(index, index + BATCH_WRITE_SIZE)
+				requests: requests.slice(index, index + BATCH_WRITE_SIZE)
 			});
 		}
 	}
 
 	private async writeBatch({
-		items
+		requests: batch
 	}: PricePointRepository.WriteBatchParams): Promise<void> {
 		const tableName = this.appConfig.database.dynamodb.mainTable;
-		let requests = items.map((item) => ({ PutRequest: { Item: item } }));
+		let requests = batch;
 		let attempt = 0;
 
 		while (requests.length > 0) {
@@ -111,7 +146,27 @@ export namespace PricePointRepository {
 		pricePoints: PricePoint[];
 	};
 
+	export type DeleteManyParams = {
+		accountId: string;
+		productKeys: string[];
+		purchasedAt: Date;
+		purchaseId: string;
+	};
+
+	export type Key = {
+		PK: PricePointItem.Keys['PK'];
+		SK: PricePointItem.Keys['SK'];
+	};
+
+	export type WriteRequest =
+		| { PutRequest: { Item: PricePointItem.ItemType } }
+		| { DeleteRequest: { Key: PricePointRepository.Key } };
+
+	export type WriteInBatchesParams = {
+		requests: PricePointRepository.WriteRequest[];
+	};
+
 	export type WriteBatchParams = {
-		items: PricePointItem.ItemType[];
+		requests: PricePointRepository.WriteRequest[];
 	};
 }

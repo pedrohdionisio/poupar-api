@@ -1,7 +1,11 @@
 import { AccountProduct } from '@application/entities/AccountProduct';
 import { Receipt } from '@application/entities/Receipt';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
-import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	DeleteCommand,
+	QueryCommand,
+	UpdateCommand
+} from '@aws-sdk/lib-dynamodb';
 import { dynamoClient } from '@infra/clients/dynamoClient';
 import { Injectable } from '@kernel/decorators/Injectable';
 import { AppConfig } from '@shared/config/AppConfig';
@@ -205,6 +209,90 @@ export class AccountProductRepository {
 			})
 		);
 	}
+
+	async rebuildFromSeries({
+		accountId,
+		productKey,
+		purchaseCount,
+		minPriceCents,
+		maxPriceCents,
+		lastUnitPriceCents,
+		previousUnitPriceCents,
+		lastPurchaseAt,
+		lastMerchantCnpj,
+		unit,
+		lastAppliedPurchaseId
+	}: AccountProductRepository.RebuildFromSeriesParams): Promise<void> {
+		const command = new UpdateCommand({
+			TableName: this.appConfig.database.dynamodb.mainTable,
+			Key: {
+				PK: AccountProductItem.getPK({ accountId }),
+				SK: AccountProductItem.getSK({ productKey })
+			},
+			UpdateExpression: [
+				'SET #purchaseCount = :purchaseCount,',
+				'#minPriceCents = :minPriceCents,',
+				'#maxPriceCents = :maxPriceCents,',
+				'#lastUnitPriceCents = :lastUnitPriceCents,',
+				'#previousUnitPriceCents = :previousUnitPriceCents,',
+				'#lastPurchaseAt = :lastPurchaseAt,',
+				'#lastMerchantCnpj = :lastMerchantCnpj,',
+				'#unit = :unit,',
+				'#lastAppliedPurchaseId = :lastAppliedPurchaseId,',
+				'#updatedAt = :now'
+			].join(' '),
+			ConditionExpression: 'attribute_exists(SK)',
+			ExpressionAttributeNames: {
+				'#purchaseCount': 'purchaseCount',
+				'#minPriceCents': 'minPriceCents',
+				'#maxPriceCents': 'maxPriceCents',
+				'#lastUnitPriceCents': 'lastUnitPriceCents',
+				'#previousUnitPriceCents': 'previousUnitPriceCents',
+				'#lastPurchaseAt': 'lastPurchaseAt',
+				'#lastMerchantCnpj': 'lastMerchantCnpj',
+				'#unit': 'unit',
+				'#lastAppliedPurchaseId': 'lastAppliedPurchaseId',
+				'#updatedAt': 'updatedAt'
+			},
+			ExpressionAttributeValues: {
+				':purchaseCount': purchaseCount,
+				':minPriceCents': minPriceCents,
+				':maxPriceCents': maxPriceCents,
+				':lastUnitPriceCents': lastUnitPriceCents,
+				':previousUnitPriceCents': previousUnitPriceCents,
+				':lastPurchaseAt': lastPurchaseAt.toISOString(),
+				':lastMerchantCnpj': lastMerchantCnpj,
+				':unit': unit,
+				':lastAppliedPurchaseId': lastAppliedPurchaseId,
+				':now': new Date().toISOString()
+			}
+		});
+
+		try {
+			await dynamoClient.send(command);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return;
+			}
+
+			throw error;
+		}
+	}
+
+	async delete({
+		accountId,
+		productKey
+	}: AccountProductRepository.DeleteParams): Promise<void> {
+		const command = new DeleteCommand({
+			TableName: this.appConfig.database.dynamodb.mainTable,
+			Key: {
+				PK: AccountProductItem.getPK({ accountId }),
+				SK: AccountProductItem.getSK({ productKey })
+			}
+		});
+
+		await dynamoClient.send(command);
+	}
 }
 
 export namespace AccountProductRepository {
@@ -223,5 +311,24 @@ export namespace AccountProductRepository {
 		unitPriceCents: number;
 		purchaseId: string;
 		purchasedAt: Date;
+	};
+
+	export type RebuildFromSeriesParams = {
+		accountId: string;
+		productKey: string;
+		purchaseCount: number;
+		minPriceCents: number;
+		maxPriceCents: number;
+		lastUnitPriceCents: number;
+		previousUnitPriceCents: number | null;
+		lastPurchaseAt: Date;
+		lastMerchantCnpj: string;
+		unit: Receipt.Unit;
+		lastAppliedPurchaseId: string;
+	};
+
+	export type DeleteParams = {
+		accountId: string;
+		productKey: string;
 	};
 }

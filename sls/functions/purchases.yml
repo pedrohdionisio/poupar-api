@@ -6,11 +6,11 @@ listPurchases:
         method: GET
         authorizer:
           name: CognitoAuthorizer
-createPurchase:
-  handler: src/main/functions/purchases/createPurchase.handler
+importPurchase:
+  handler: src/main/functions/purchases/importPurchase.handler
   events:
     - httpApi:
-        path: /purchases
+        path: /purchases/import
         method: POST
         authorizer:
           name: CognitoAuthorizer

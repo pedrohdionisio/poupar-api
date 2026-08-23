@@ -179,6 +179,74 @@ export class AccountMerchantRepository {
 		);
 	}
 
+	async adjustTotals({
+		accountId,
+		cnpj,
+		purchaseCountDelta,
+		totalCentsDelta
+	}: AccountMerchantRepository.AdjustTotalsParams): Promise<void> {
+		const command = new UpdateCommand({
+			TableName: this.appConfig.database.dynamodb.mainTable,
+			Key: {
+				PK: AccountMerchantItem.getPK({ accountId }),
+				SK: AccountMerchantItem.getSK({ cnpj })
+			},
+			UpdateExpression:
+				'SET #updatedAt = :now ADD #purchaseCount :purchaseCountDelta, #totalSpentCents :totalCentsDelta',
+			ConditionExpression: 'attribute_exists(SK)',
+			ExpressionAttributeNames: {
+				'#updatedAt': 'updatedAt',
+				'#purchaseCount': 'purchaseCount',
+				'#totalSpentCents': 'totalSpentCents'
+			},
+			ExpressionAttributeValues: {
+				':now': new Date().toISOString(),
+				':purchaseCountDelta': purchaseCountDelta,
+				':totalCentsDelta': totalCentsDelta
+			}
+		});
+
+		try {
+			await dynamoClient.send(command);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return;
+			}
+
+			throw error;
+		}
+	}
+
+	async deleteIfEmpty({
+		accountId,
+		cnpj
+	}: AccountMerchantRepository.DeleteIfEmptyParams): Promise<void> {
+		const command = new DeleteCommand({
+			TableName: this.appConfig.database.dynamodb.mainTable,
+			Key: {
+				PK: AccountMerchantItem.getPK({ accountId }),
+				SK: AccountMerchantItem.getSK({ cnpj })
+			},
+			ConditionExpression: '#purchaseCount <= :zero',
+			ExpressionAttributeNames: {
+				'#purchaseCount': 'purchaseCount'
+			},
+			ExpressionAttributeValues: {
+				':zero': 0
+			}
+		});
+
+		try {
+			await dynamoClient.send(command);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return;
+			}
+
+			throw error;
+		}
+	}
+
 	async updateAlias({
 		accountId,
 		cnpj,
@@ -247,6 +315,18 @@ export namespace AccountMerchantRepository {
 		purchaseId: string;
 		totalCents: number;
 		purchasedAt: Date;
+	};
+
+	export type AdjustTotalsParams = {
+		accountId: string;
+		cnpj: string;
+		purchaseCountDelta: number;
+		totalCentsDelta: number;
+	};
+
+	export type DeleteIfEmptyParams = {
+		accountId: string;
+		cnpj: string;
 	};
 
 	export type UpdateAliasParams = {

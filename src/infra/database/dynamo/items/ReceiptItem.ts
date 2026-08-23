@@ -74,7 +74,7 @@ export namespace ReceiptItem {
 		purchaseId: string;
 		accountId: string;
 		accessKey: string | null;
-		photoS3Key: string;
+		photoS3Key: string | null;
 		ocrS3Key: string | null;
 		items: Receipt.Item[];
 		createdAt: string;

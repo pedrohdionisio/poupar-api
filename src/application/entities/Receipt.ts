@@ -2,7 +2,7 @@ export class Receipt {
 	readonly purchaseId: string;
 	readonly accountId: string;
 	readonly accessKey: string | null;
-	readonly photoS3Key: string;
+	readonly photoS3Key: string | null;
 	readonly ocrS3Key: string | null;
 	readonly items: Receipt.Item[];
 	readonly createdAt: Date;
@@ -43,7 +43,7 @@ export namespace Receipt {
 		purchaseId: string;
 		accountId: string;
 		accessKey: string | null;
-		photoS3Key: string;
+		photoS3Key: string | null;
 		ocrS3Key: string | null;
 		items: Receipt.Item[];
 		createdAt?: Date;
