@@ -30,9 +30,11 @@ gerados. Leia **todos** eles por inteiro antes de concluir qualquer coisa. Compa
 - **Token do DI é `impl.name`** (`src/kernel/di/Registry.ts`). Para cada classe nova, rode um grep
   pelo nome no `src/` inteiro: duplicata derruba a aplicação no import, com erro de "already
   registered". Confira também que toda classe registrada tem `@Injectable()`.
-- **`dynamoClient` não tem `removeUndefinedValues`** (`src/infra/clients/dynamoClient.ts`).
-  Qualquer atributo tipado `| undefined` que chegue `undefined` faz o `PutCommand` lançar em runtime,
-  e o typecheck não pega. Campos opcionais devem ser `| null`.
+- **`dynamoClient` tem `removeUndefinedValues: true`** (`src/infra/clients/dynamoClient.ts`).
+  Então `undefined` **não** faz o `PutCommand` lançar — o atributo some do item em silêncio, e a
+  leitura seguinte devolve `undefined` sem o typecheck pegar. Campos opcionais devem ser `| null`,
+  que é gravado como `NULL` e distingue "sem valor" de "campo que nunca existiu". Reporte campo
+  `| undefined`, mas pela consequência certa: perda silenciosa de atributo, não exceção em runtime.
 - **`@Injectable()` só registra no import.** Confira que existe cadeia de import viva do lambda entry
   até cada classe nova — lambda → controller → use case → repository. Classe órfã não existe em
   runtime.

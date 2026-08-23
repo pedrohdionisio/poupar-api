@@ -35,7 +35,8 @@
 			},
 			"complexity": {
 				"noThisInStatic": "off",
-				"noStaticOnlyClass": "off"
+				"noStaticOnlyClass": "off",
+				"useOptionalChain": "off"
 			}
 		}
 	},

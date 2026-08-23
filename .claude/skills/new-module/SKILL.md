@@ -177,5 +177,6 @@ Descarte finding que você verificou ser falso — mas diga que descartou e por 
   lança no import. Confira que cada classe nova tem nome único no `src/` inteiro.
 - **`@Injectable()` só registra se o arquivo for importado** — a cadeia lambda → controller →
   use case → repository é o que popula o container.
-- **`dynamoClient` não remove `undefined`** — atributo opcional é `| null`, nunca `| undefined`.
+- **`dynamoClient` remove `undefined`** (`removeUndefinedValues: true`) — o atributo some do item em
+  silêncio em vez de estourar. Campo opcional é `| null`, nunca `| undefined`.
 - `noImplicitOverride: true` — `handle` sem `override` não compila.

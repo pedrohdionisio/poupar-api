@@ -2,7 +2,13 @@ import { Merchant } from '@application/entities/Merchant';
 import z from 'zod';
 
 export const createMerchantBodySchema = z.object({
-	cnpj: z.string().regex(/^\d{14}$/, '"cnpj" must have exactly 14 digits'),
+	cnpj: z
+		.string()
+		.regex(/^\d{14}$/, '"cnpj" must have exactly 14 digits')
+		.refine(
+			(cnpj) => Merchant.isValidCnpj({ cnpj }),
+			'"cnpj" has invalid check digits'
+		),
 	name: z.string().min(1, '"name" is required'),
 	fantasyName: z
 		.string()

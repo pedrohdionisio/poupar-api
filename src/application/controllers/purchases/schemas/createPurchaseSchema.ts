@@ -6,7 +6,11 @@ export const createPurchaseBodySchema = z.object({
 	purchasedAt: z.iso.datetime(),
 	merchantCnpj: z
 		.string()
-		.regex(/^\d{14}$/, '"merchantCnpj" must have exactly 14 digits'),
+		.regex(/^\d{14}$/, '"merchantCnpj" must have exactly 14 digits')
+		.refine(
+			(cnpj) => Merchant.isValidCnpj({ cnpj }),
+			'"merchantCnpj" has invalid check digits'
+		),
 	merchantName: z.string().min(1, '"merchantName" is required'),
 	category: z.enum(Merchant.Category),
 	totalCents: z.int().nonnegative(),

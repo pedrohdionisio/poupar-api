@@ -55,7 +55,9 @@ esse sufixo.
 - **Snapshot**: campos copiados de outra entidade (`merchantName`, `category` na compra) são
   proposital — congelam o passado e evitam resolver referência na Query. Não são desnormalização a
   corrigir.
-- **Opcional é `| null`, não `| undefined`** — `dynamoClient` não remove undefined no marshalling.
+- **Opcional é `| null`, não `| undefined`** — `NULL` é gravado e consultável; atributo ausente não
+  distingue "sem valor" de "campo novo". O `dynamoClient` tem `removeUndefinedValues: true`, então
+  `undefined` não estoura o `PutCommand` — ele simplesmente some do item, que é o problema.
 
 ## Soft delete
 
