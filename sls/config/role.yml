@@ -6,6 +6,7 @@ statements:
       - dynamodb:GetItem
       - dynamodb:DeleteItem
       - dynamodb:UpdateItem
+      - dynamodb:BatchWriteItem
     Resource:
       - !GetAtt MainTable.Arn
       - !Sub '${MainTable.Arn}/index/*'

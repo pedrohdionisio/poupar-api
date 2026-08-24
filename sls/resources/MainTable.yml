@@ -8,6 +8,9 @@ Resources:
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
         RecoveryPeriodInDays: 35
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
       AttributeDefinitions:
         - AttributeName: PK
           AttributeType: S
