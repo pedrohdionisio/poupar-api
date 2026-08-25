@@ -10,7 +10,11 @@ export const schema = z.object({
 	MAIN_TABLE_NAME: z.string().min(1),
 
 	// Storage
-	UPLOADS_BUCKET_NAME: z.string().min(1)
+	UPLOADS_BUCKET_NAME: z.string().min(1),
+
+	// AI
+	GEMINI_API_KEY: z.string().min(1),
+	GEMINI_MODEL: z.string().min(1)
 });
 
 export const env = schema.parse(process.env);

@@ -18,4 +18,9 @@ statements:
   - Effect: Allow
     Action:
       - s3:PutObject
+      - s3:GetObject
     Resource: !Sub '${UploadsBucket.Arn}/scans/*'
+  - Effect: Allow
+    Action:
+      - s3:PutObject
+    Resource: !Sub '${UploadsBucket.Arn}/ocr/*'

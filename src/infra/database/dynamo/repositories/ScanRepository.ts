@@ -1,5 +1,4 @@
 import { Scan } from '@application/entities/Scan';
-import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import {
 	GetCommand,
@@ -51,42 +50,129 @@ export class ScanRepository {
 		await dynamoClient.send(new PutCommand(this.getPutCommandInput({ scan })));
 	}
 
-	async update({ scan }: ScanRepository.UpdateParams): Promise<void> {
-		const { status, provider, purchaseId, errorCode, attempts, updatedAt } =
-			ScanItem.fromEntity({ entity: scan }).toItem();
-
+	async startProcessing({
+		accountId,
+		id
+	}: ScanRepository.StartProcessingParams): Promise<boolean> {
 		const command = new UpdateCommand({
 			TableName: this.appConfig.database.dynamodb.mainTable,
 			Key: {
-				PK: ScanItem.getPK({ accountId: scan.accountId }),
-				SK: ScanItem.getSK({ id: scan.id })
+				PK: ScanItem.getPK({ accountId }),
+				SK: ScanItem.getSK({ id })
 			},
 			UpdateExpression:
-				'SET #status = :status, #provider = :provider, #purchaseId = :purchaseId, #errorCode = :errorCode, #attempts = :attempts, #updatedAt = :updatedAt',
-			ConditionExpression: 'attribute_exists(PK)',
+				'SET #status = :processing, #updatedAt = :updatedAt ADD #attempts :increment',
+			ConditionExpression:
+				'attribute_exists(PK) AND #status IN (:pending, :processing)',
 			ExpressionAttributeNames: {
 				'#status': 'status',
-				'#provider': 'provider',
-				'#purchaseId': 'purchaseId',
-				'#errorCode': 'errorCode',
 				'#attempts': 'attempts',
 				'#updatedAt': 'updatedAt'
 			},
 			ExpressionAttributeValues: {
-				':status': status,
-				':provider': provider,
-				':purchaseId': purchaseId,
-				':errorCode': errorCode,
-				':attempts': attempts,
-				':updatedAt': updatedAt
+				':pending': Scan.Status.PENDING,
+				':processing': Scan.Status.PROCESSING,
+				':increment': 1,
+				':updatedAt': new Date().toISOString()
 			}
 		});
 
 		try {
 			await dynamoClient.send(command);
+
+			return true;
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
-				throw new ResourceNotFound('Scan not found.');
+				return false;
+			}
+
+			throw error;
+		}
+	}
+
+	async markAsAwaitingReview({
+		accountId,
+		id,
+		draft,
+		ocrS3Key
+	}: ScanRepository.MarkAsAwaitingReviewParams): Promise<boolean> {
+		return this.finish({
+			accountId,
+			id,
+			UpdateExpression:
+				'SET #status = :status, #draft = :draft, #ocrS3Key = :ocrS3Key, #updatedAt = :updatedAt',
+			ExpressionAttributeNames: {
+				'#status': 'status',
+				'#draft': 'draft',
+				'#ocrS3Key': 'ocrS3Key',
+				'#updatedAt': 'updatedAt'
+			},
+			ExpressionAttributeValues: {
+				':status': Scan.Status.AWAITING_REVIEW,
+				':draft': draft,
+				':ocrS3Key': ocrS3Key
+			}
+		});
+	}
+
+	async markAsFailed({
+		accountId,
+		id,
+		errorCode,
+		purchaseId,
+		ocrS3Key
+	}: ScanRepository.MarkAsFailedParams): Promise<boolean> {
+		return this.finish({
+			accountId,
+			id,
+			UpdateExpression:
+				'SET #status = :status, #errorCode = :errorCode, #purchaseId = :purchaseId, #ocrS3Key = :ocrS3Key, #updatedAt = :updatedAt',
+			ExpressionAttributeNames: {
+				'#status': 'status',
+				'#errorCode': 'errorCode',
+				'#purchaseId': 'purchaseId',
+				'#ocrS3Key': 'ocrS3Key',
+				'#updatedAt': 'updatedAt'
+			},
+			ExpressionAttributeValues: {
+				':status': Scan.Status.FAILED,
+				':errorCode': errorCode,
+				':purchaseId': purchaseId,
+				':ocrS3Key': ocrS3Key
+			}
+		});
+	}
+
+	private async finish({
+		accountId,
+		id,
+		UpdateExpression,
+		ExpressionAttributeNames,
+		ExpressionAttributeValues
+	}: ScanRepository.FinishParams): Promise<boolean> {
+		const command = new UpdateCommand({
+			TableName: this.appConfig.database.dynamodb.mainTable,
+			Key: {
+				PK: ScanItem.getPK({ accountId }),
+				SK: ScanItem.getSK({ id })
+			},
+			UpdateExpression,
+			ConditionExpression: '#status = :processing',
+			ExpressionAttributeNames,
+			ExpressionAttributeValues: {
+				...ExpressionAttributeValues,
+				':processing': Scan.Status.PROCESSING,
+				':updatedAt': new Date().toISOString()
+			}
+		});
+
+		try {
+			await dynamoClient.send(command);
+
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return false;
 			}
 
 			throw error;
@@ -108,7 +194,31 @@ export namespace ScanRepository {
 		scan: Scan;
 	};
 
-	export type UpdateParams = {
-		scan: Scan;
+	export type StartProcessingParams = {
+		accountId: string;
+		id: string;
+	};
+
+	export type MarkAsAwaitingReviewParams = {
+		accountId: string;
+		id: string;
+		draft: Scan.Draft;
+		ocrS3Key: string;
+	};
+
+	export type MarkAsFailedParams = {
+		accountId: string;
+		id: string;
+		errorCode: Scan.ErrorCode;
+		purchaseId: string | null;
+		ocrS3Key: string | null;
+	};
+
+	export type FinishParams = {
+		accountId: string;
+		id: string;
+		UpdateExpression: string;
+		ExpressionAttributeNames: Record<string, string>;
+		ExpressionAttributeValues: Record<string, unknown>;
 	};
 }

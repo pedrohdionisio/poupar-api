@@ -1,8 +1,6 @@
 import type { IQueueConsumer } from '@application/contracts/IQueueConsumer';
-import { Scan } from '@application/entities/Scan';
 import { InvalidScanKey } from '@application/errors/application/InvalidScanKey';
-import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
-import { ScanRepository } from '@infra/database/dynamo/repositories/ScanRepository';
+import { ProcessScanUseCase } from '@application/usecases/scans/ProcessScanUseCase';
 import { Injectable } from '@kernel/decorators/Injectable';
 
 const SCAN_KEY_PATTERN =
@@ -12,7 +10,7 @@ const SCAN_KEY_PATTERN =
 export class ProcessScanConsumer
 	implements IQueueConsumer<ProcessScanConsumer.Message>
 {
-	constructor(private readonly scanRepository: ScanRepository) {}
+	constructor(private readonly processScanUseCase: ProcessScanUseCase) {}
 
 	async process(message: ProcessScanConsumer.Message): Promise<void> {
 		if (!message.Records) {
@@ -20,39 +18,18 @@ export class ProcessScanConsumer
 		}
 
 		for (const record of message.Records) {
-			await this.processObject({ key: record.s3.object.key });
+			const key = record.s3.object.key;
+			const match = key.match(SCAN_KEY_PATTERN);
+
+			if (!match?.groups) {
+				throw new InvalidScanKey(key);
+			}
+
+			await this.processScanUseCase.execute({
+				accountId: match.groups.accountId!,
+				scanId: match.groups.scanId!
+			});
 		}
-	}
-
-	private async processObject({
-		key
-	}: ProcessScanConsumer.ProcessObjectParams): Promise<void> {
-		const match = key.match(SCAN_KEY_PATTERN);
-
-		if (!match?.groups) {
-			throw new InvalidScanKey(key);
-		}
-
-		const { accountId, scanId } = match.groups;
-
-		const scan = await this.scanRepository.getById({
-			accountId: accountId!,
-			id: scanId!
-		});
-
-		if (!scan) {
-			throw new ResourceNotFound(`Scan not found for key "${key}".`);
-		}
-
-		if (scan.status !== Scan.Status.PENDING) {
-			return;
-		}
-
-		scan.status = Scan.Status.PROCESSING;
-		scan.attempts = scan.attempts + 1;
-		scan.updatedAt = new Date();
-
-		await this.scanRepository.update({ scan });
 	}
 }
 
@@ -65,9 +42,5 @@ export namespace ProcessScanConsumer {
 				};
 			};
 		}[];
-	};
-
-	export type ProcessObjectParams = {
-		key: string;
 	};
 }

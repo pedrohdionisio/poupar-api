@@ -24,6 +24,10 @@ Resources:
             ExpirationInDays: 30
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 1
+          - Id: ExpireOcr
+            Status: Enabled
+            Prefix: ocr/
+            ExpirationInDays: 30
       NotificationConfiguration:
         QueueConfigurations:
           - Event: s3:ObjectCreated:*

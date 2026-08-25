@@ -1,3 +1,4 @@
+import { Receipt } from '@application/entities/Receipt';
 import { ulid } from 'ulid';
 
 export class Scan {
@@ -7,7 +8,9 @@ export class Scan {
 
 	status: Scan.Status;
 	photoS3Key: string;
+	ocrS3Key: string | null;
 	provider: Scan.Provider;
+	draft: Scan.Draft | null;
 	purchaseId: string | null;
 	errorCode: Scan.ErrorCode | null;
 	attempts: number;
@@ -19,7 +22,9 @@ export class Scan {
 		this.accountId = attr.accountId;
 		this.status = attr.status;
 		this.photoS3Key = attr.photoS3Key;
+		this.ocrS3Key = attr.ocrS3Key;
 		this.provider = attr.provider;
+		this.draft = attr.draft;
 		this.purchaseId = attr.purchaseId;
 		this.errorCode = attr.errorCode;
 		this.attempts = attr.attempts;
@@ -33,6 +38,7 @@ export namespace Scan {
 	export enum Status {
 		PENDING = 'PENDING',
 		PROCESSING = 'PROCESSING',
+		AWAITING_REVIEW = 'AWAITING_REVIEW',
 		DONE = 'DONE',
 		FAILED = 'FAILED'
 	}
@@ -49,12 +55,40 @@ export namespace Scan {
 		INTERNAL_ERROR = 'INTERNAL_ERROR'
 	}
 
+	export type DraftItem = {
+		seq: number;
+		description: string;
+		merchantCode: string | null;
+		gtin: string | null;
+		quantityMilli: number;
+		unit: Receipt.Unit;
+		unitPriceCents: number;
+		totalCents: number;
+		discountCents: number;
+	};
+
+	export type Draft = {
+		purchasedAt: string;
+		accessKey: string | null;
+		merchant: {
+			cnpj: string;
+			name: string;
+			fantasyName: string | null;
+			address: string;
+		};
+		totalCents: number;
+		discountCents: number;
+		items: Scan.DraftItem[];
+	};
+
 	export type Attributes = {
 		id?: string;
 		accountId: string;
 		status: Scan.Status;
 		photoS3Key: string;
+		ocrS3Key: string | null;
 		provider: Scan.Provider;
+		draft: Scan.Draft | null;
 		purchaseId: string | null;
 		errorCode: Scan.ErrorCode | null;
 		attempts: number;

@@ -22,6 +22,7 @@ export class GetScanUseCase {
 			accountId: scan.accountId,
 			status: scan.status,
 			provider: scan.provider,
+			draft: scan.draft,
 			purchaseId: scan.purchaseId,
 			errorCode: scan.errorCode,
 			attempts: scan.attempts,
@@ -37,5 +38,5 @@ export namespace GetScanUseCase {
 		id: string;
 	};
 
-	export type Output = Omit<Scan, 'photoS3Key' | 'ttl'>;
+	export type Output = Omit<Scan, 'photoS3Key' | 'ocrS3Key' | 'ttl'>;
 }

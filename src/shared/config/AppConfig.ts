@@ -6,6 +6,7 @@ export class AppConfig {
 	readonly auth: AppConfig.Auth;
 	readonly database: AppConfig.Database;
 	readonly storage: AppConfig.Storage;
+	readonly ai: AppConfig.Ai;
 
 	constructor() {
 		this.auth = {
@@ -29,6 +30,13 @@ export class AppConfig {
 		this.storage = {
 			s3: {
 				uploadsBucket: env.UPLOADS_BUCKET_NAME
+			}
+		};
+
+		this.ai = {
+			gemini: {
+				apiKey: env.GEMINI_API_KEY,
+				model: env.GEMINI_MODEL
 			}
 		};
 	}
@@ -56,6 +64,13 @@ export namespace AppConfig {
 	export type Storage = {
 		s3: {
 			uploadsBucket: string;
+		};
+	};
+
+	export type Ai = {
+		gemini: {
+			apiKey: string;
+			model: string;
 		};
 	};
 }

@@ -17,12 +17,13 @@ const CONTENT_TYPES = {
 const MAX_SIZE_IN_BYTES = 10 * 1024 * 1024;
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_IMAGE = join(ROOT_DIR, 'scripts/fixtures/sample-receipt.jpg');
-const POLL_TIMEOUT_IN_MS = 45_000;
+const POLL_TIMEOUT_IN_MS = 120_000;
 const POLL_INTERVAL_IN_MS = 2_000;
 
 const args = process.argv.slice(2);
 const negative = args.includes('--negative');
 const dlq = args.includes('--dlq');
+const reupload = args.includes('--reupload');
 const imagePath = args.find((arg) => !arg.startsWith('--')) ?? DEFAULT_IMAGE;
 
 function log(step, message) {
@@ -187,8 +188,11 @@ function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const IN_FLIGHT = ['PENDING', 'PROCESSING'];
+
 async function waitForStatusChange({ apiUrl, accessToken, scanId }) {
 	const startedAt = Date.now();
+	let last = null;
 
 	while (Date.now() - startedAt < POLL_TIMEOUT_IN_MS) {
 		const scan = await api({
@@ -198,14 +202,91 @@ async function waitForStatusChange({ apiUrl, accessToken, scanId }) {
 			token: accessToken
 		});
 
-		if (scan.status !== 'PENDING') {
+		if (!IN_FLIGHT.includes(scan.status)) {
 			return { scan, elapsed: Date.now() - startedAt };
 		}
+
+		last = scan.status;
 
 		await sleep(POLL_INTERVAL_IN_MS);
 	}
 
-	return { scan: null, elapsed: Date.now() - startedAt };
+	return { scan: null, last, elapsed: Date.now() - startedAt };
+}
+
+function printDraft(draft) {
+	const brl = (cents) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
+
+	console.log(`\nLoja:   ${draft.merchant.name}  (${draft.merchant.cnpj})`);
+	console.log(`Data:   ${draft.purchasedAt}`);
+	console.log(`Chave:  ${draft.accessKey ?? '(não lida)'}`);
+	console.log(`Total:  ${brl(draft.totalCents)}\n`);
+
+	for (const item of draft.items) {
+		const quantity = (item.quantityMilli / 1000).toFixed(3).replace('.', ',');
+
+		console.log(
+			`  ${String(item.seq).padStart(3, '0')}  ${item.description.padEnd(38).slice(0, 38)}  ${quantity} ${item.unit.padEnd(2)}  ${brl(item.unitPriceCents).padStart(10)}  ${brl(item.totalCents).padStart(10)}  ${item.gtin ?? '-'}`
+		);
+	}
+
+	const sum = draft.items.reduce((acc, item) => acc + item.totalCents, 0);
+
+	console.log(
+		`\n  soma dos itens ${brl(sum)} ${sum === draft.totalCents ? '✓ bate com o total' : `✗ diverge do total ${brl(draft.totalCents)}`}`
+	);
+}
+
+const REUPLOAD_OBSERVATION_IN_MS = 20_000;
+
+async function runReuploadTest({
+	apiUrl,
+	accessToken,
+	scanId,
+	uploadSignature,
+	buffer,
+	contentType,
+	attemptsBefore,
+	statusBefore
+}) {
+	console.log('\n--- reentrega (mesma assinatura, mesmo key) ---');
+
+	const result = await upload({
+		uploadSignature,
+		buffer,
+		contentType,
+		filename: 'receipt.jpg'
+	});
+
+	if (result.status !== 204) {
+		return fail(`Reupload respondeu ${result.status}`, result.body);
+	}
+
+	const startedAt = Date.now();
+	let scan = null;
+
+	while (Date.now() - startedAt < REUPLOAD_OBSERVATION_IN_MS) {
+		await sleep(POLL_INTERVAL_IN_MS);
+
+		scan = await api({
+			apiUrl,
+			method: 'GET',
+			path: `/scans/${scanId}`,
+			token: accessToken
+		});
+
+		if (scan.attempts !== attemptsBefore || scan.status !== statusBefore) {
+			console.log(
+				`✗ o scan foi reprocessado: attempts ${attemptsBefore} → ${scan.attempts}, status ${statusBefore} → ${scan.status}`
+			);
+
+			return;
+		}
+	}
+
+	console.log(
+		`attempts ${scan.attempts}, status ${scan.status} ✓ segundo evento virou no-op (nenhuma chamada extra à IA)`
+	);
 }
 
 async function runDlqTest({ apiUrl, accessToken, contentType }) {
@@ -335,9 +416,9 @@ async function main() {
 	}
 
 	log('[3/4]', 'Upload aceito pelo S3 (204).');
-	log('[4/4]', 'Esperando o consumer sair de PENDING...');
+	log('[4/4]', 'Esperando a leitura da nota...');
 
-	const { scan, elapsed } = await waitForStatusChange({
+	const { scan, last, elapsed } = await waitForStatusChange({
 		apiUrl,
 		accessToken,
 		scanId
@@ -345,14 +426,42 @@ async function main() {
 
 	if (!scan) {
 		console.error(
-			`\n✗ O scan seguiu PENDING por ${Math.round(elapsed / 1000)}s — o evento do S3 não chegou ao worker.`
+			`\n✗ O scan travou em ${last} por ${Math.round(elapsed / 1000)}s.`
 		);
 		console.error('  npx serverless logs -f processScan --stage dev');
 		process.exit(1);
 	}
 
-	console.log(`\nPENDING → ${scan.status} em ${(elapsed / 1000).toFixed(1)}s`);
-	console.log(JSON.stringify(scan, null, 2));
+	console.log(
+		`\nStatus final: ${scan.status} em ${(elapsed / 1000).toFixed(1)}s`
+	);
+
+	if (scan.status === 'FAILED') {
+		console.error(`\n✗ errorCode: ${scan.errorCode}`);
+
+		if (scan.purchaseId) {
+			console.error(`  já importada como ${scan.purchaseId}`);
+		}
+
+		process.exit(1);
+	}
+
+	if (scan.draft) {
+		printDraft(scan.draft);
+	}
+
+	if (reupload) {
+		await runReuploadTest({
+			apiUrl,
+			accessToken,
+			scanId,
+			uploadSignature,
+			buffer,
+			contentType,
+			attemptsBefore: scan.attempts,
+			statusBefore: scan.status
+		});
+	}
 
 	if (negative) {
 		await runNegativeTests({ apiUrl, accessToken, buffer, contentType });
@@ -363,7 +472,7 @@ async function main() {
 	}
 
 	console.log(
-		'\nO scan para em PROCESSING de propósito — a leitura da foto é o passo 5.'
+		'\nO scan para em AWAITING_REVIEW de propósito — confirmar e virar compra é o passo 5b.'
 	);
 }
 

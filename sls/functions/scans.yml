@@ -16,8 +16,8 @@ getScan:
           name: CognitoAuthorizer
 processScan:
   handler: src/main/functions/scans/processScan.handler
-  timeout: 60
-  memorySize: 512
+  timeout: 120
+  memorySize: 1024
   events:
     - sqs:
         arn: !GetAtt ScansQueue.Arn

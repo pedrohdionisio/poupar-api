@@ -25,7 +25,9 @@ export class ScanItem {
 			accountId: entity.accountId,
 			status: entity.status,
 			photoS3Key: entity.photoS3Key,
+			ocrS3Key: entity.ocrS3Key,
 			provider: entity.provider,
+			draft: entity.draft,
 			purchaseId: entity.purchaseId,
 			errorCode: entity.errorCode,
 			attempts: entity.attempts,
@@ -41,7 +43,9 @@ export class ScanItem {
 			accountId: item.accountId,
 			status: item.status,
 			photoS3Key: item.photoS3Key,
+			ocrS3Key: item.ocrS3Key,
 			provider: item.provider,
+			draft: item.draft,
 			purchaseId: item.purchaseId,
 			errorCode: item.errorCode,
 			attempts: item.attempts,
@@ -79,7 +83,9 @@ export namespace ScanItem {
 		accountId: string;
 		status: Scan.Status;
 		photoS3Key: string;
+		ocrS3Key: string | null;
 		provider: Scan.Provider;
+		draft: Scan.Draft | null;
 		purchaseId: string | null;
 		errorCode: Scan.ErrorCode | null;
 		attempts: number;
