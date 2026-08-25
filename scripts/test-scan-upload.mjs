@@ -2,7 +2,8 @@
 
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
-import { extname } from 'node:path';
+import { dirname, extname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -14,12 +15,12 @@ const CONTENT_TYPES = {
 };
 
 const MAX_SIZE_IN_BYTES = 10 * 1024 * 1024;
-const DEFAULT_IMAGE = 'scripts/fixtures/sample-receipt.jpg';
+const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
+const DEFAULT_IMAGE = join(ROOT_DIR, 'scripts/fixtures/sample-receipt.jpg');
 
 const args = process.argv.slice(2);
 const negative = args.includes('--negative');
 const imagePath = args.find((arg) => !arg.startsWith('--')) ?? DEFAULT_IMAGE;
-const stage = process.env.STAGE ?? 'dev';
 
 function log(step, message) {
 	console.log(`${step}  ${message}`);
@@ -37,7 +38,7 @@ function fail(message, detail) {
 
 async function readDotEnv() {
 	try {
-		const content = await readFile('.env', 'utf-8');
+		const content = await readFile(join(ROOT_DIR, '.env'), 'utf-8');
 
 		return Object.fromEntries(
 			content
@@ -61,22 +62,23 @@ async function readDotEnv() {
 	}
 }
 
+const config = { ...(await readDotEnv()), ...process.env };
+const stage = config.STAGE ?? 'dev';
+
 async function resolveApiUrl() {
-	if (process.env.API_URL) {
-		return { url: process.env.API_URL.replace(/\/$/, ''), source: 'API_URL' };
+	if (config.API_URL) {
+		return { url: config.API_URL.replace(/\/$/, ''), source: 'API_URL' };
 	}
 
-	const dotEnv = await readDotEnv();
-
-	if (dotEnv.API_DOMAIN) {
-		return { url: `https://${dotEnv.API_DOMAIN}`, source: '.env API_DOMAIN' };
+	if (config.API_DOMAIN) {
+		return { url: `https://${config.API_DOMAIN}`, source: '.env API_DOMAIN' };
 	}
 
 	try {
 		const { stdout } = await execFileAsync(
 			'npx',
 			['serverless', 'info', '--stage', stage],
-			{ maxBuffer: 10 * 1024 * 1024 }
+			{ cwd: ROOT_DIR, maxBuffer: 10 * 1024 * 1024 }
 		);
 		const match = stdout.match(
 			/https:\/\/[a-z0-9]+\.execute-api\.[a-z0-9-]+\.amazonaws\.com/
@@ -114,19 +116,19 @@ async function api({ apiUrl, method, path, token, body }) {
 }
 
 async function getAccessToken(apiUrl) {
-	if (process.env.ACCESS_TOKEN) {
+	if (config.ACCESS_TOKEN) {
 		log('[1/4]', 'Usando ACCESS_TOKEN do ambiente.');
 
-		return process.env.ACCESS_TOKEN;
+		return config.ACCESS_TOKEN;
 	}
 
-	const email = process.env.EMAIL;
-	const password = process.env.PASSWORD;
+	const email = config.EMAIL;
+	const password = config.PASSWORD;
 
 	if (!email || !password) {
 		return fail(
 			'Faltam credenciais.',
-			'Exporte EMAIL e PASSWORD (ou ACCESS_TOKEN) antes de rodar.'
+			'Defina EMAIL e PASSWORD (ou ACCESS_TOKEN) no .env ou no ambiente.'
 		);
 	}
 
