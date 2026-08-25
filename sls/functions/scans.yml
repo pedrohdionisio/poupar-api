@@ -1,3 +1,11 @@
+createScan:
+  handler: src/main/functions/scans/createScan.handler
+  events:
+    - httpApi:
+        path: /scans
+        method: POST
+        authorizer:
+          name: CognitoAuthorizer
 getScan:
   handler: src/main/functions/scans/getScan.handler
   events:

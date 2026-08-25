@@ -15,3 +15,7 @@ statements:
       - cognito-idp:AdminDeleteUser
       - cognito-idp:AdminAddUserToGroup
     Resource: !GetAtt UserPool.Arn
+  - Effect: Allow
+    Action:
+      - s3:PutObject
+    Resource: !Sub '${UploadsBucket.Arn}/scans/*'
