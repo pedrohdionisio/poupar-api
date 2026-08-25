@@ -1,6 +1,7 @@
 Resources:
   UploadsBucket:
     Type: AWS::S3::Bucket
+    DependsOn: ScansQueuePolicy
     Properties:
       BucketName: ${self:service}-${self:provider.stage}-uploads-${aws:accountId}
       OwnershipControls:
@@ -23,3 +24,12 @@ Resources:
             ExpirationInDays: 30
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 1
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Queue: !GetAtt ScansQueue.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: scans/

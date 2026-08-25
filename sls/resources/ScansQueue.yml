@@ -1,0 +1,66 @@
+Conditions:
+  ShouldSetupDLQAlarm: !Not
+    - !Equals
+      - ${env:DLQ_ALARM_EMAIL, ''}
+      - ''
+
+Resources:
+  ScansQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-${self:provider.stage}-ScansQueue
+      VisibilityTimeout: 360
+      MessageRetentionPeriod: 1209600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ScansDLQ.Arn
+        maxReceiveCount: 3
+  ScansDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:service}-${self:provider.stage}-ScansDLQ
+      MessageRetentionPeriod: 1209600
+  ScansQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref ScansQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt ScansQueue.Arn
+            Condition:
+              ArnLike:
+                aws:SourceArn: arn:aws:s3:::${self:service}-${self:provider.stage}-uploads-${aws:accountId}
+              StringEquals:
+                aws:SourceAccount: ${aws:accountId}
+  ScansDLQAlarmTopic:
+    Condition: ShouldSetupDLQAlarm
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ${self:service}-${self:provider.stage}-ScansDLQAlarm
+      Subscription:
+        - Protocol: email
+          Endpoint: ${env:DLQ_ALARM_EMAIL, ''}
+  ScansDLQAlarm:
+    Condition: ShouldSetupDLQAlarm
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ${self:service}-${self:provider.stage}-ScansDLQ-NotEmpty
+      AlarmDescription: Um scan falhou 3 vezes e caiu na DLQ.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ScansDLQ.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref ScansDLQAlarmTopic

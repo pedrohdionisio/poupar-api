@@ -17,9 +17,12 @@ const CONTENT_TYPES = {
 const MAX_SIZE_IN_BYTES = 10 * 1024 * 1024;
 const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_IMAGE = join(ROOT_DIR, 'scripts/fixtures/sample-receipt.jpg');
+const POLL_TIMEOUT_IN_MS = 45_000;
+const POLL_INTERVAL_IN_MS = 2_000;
 
 const args = process.argv.slice(2);
 const negative = args.includes('--negative');
+const dlq = args.includes('--dlq');
 const imagePath = args.find((arg) => !arg.startsWith('--')) ?? DEFAULT_IMAGE;
 
 function log(step, message) {
@@ -180,6 +183,73 @@ async function createScan({ apiUrl, accessToken, contentType }) {
 	});
 }
 
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForStatusChange({ apiUrl, accessToken, scanId }) {
+	const startedAt = Date.now();
+
+	while (Date.now() - startedAt < POLL_TIMEOUT_IN_MS) {
+		const scan = await api({
+			apiUrl,
+			method: 'GET',
+			path: `/scans/${scanId}`,
+			token: accessToken
+		});
+
+		if (scan.status !== 'PENDING') {
+			return { scan, elapsed: Date.now() - startedAt };
+		}
+
+		await sleep(POLL_INTERVAL_IN_MS);
+	}
+
+	return { scan: null, elapsed: Date.now() - startedAt };
+}
+
+async function runDlqTest({ apiUrl, accessToken, contentType }) {
+	console.log('\n--- teste da DLQ ---');
+
+	const { uploadSignature } = await createScan({
+		apiUrl,
+		accessToken,
+		contentType
+	});
+	const bucket = uploadSignature.fields.bucket;
+	const key = `scans/invalido-${Date.now()}`;
+
+	const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+	const s3Client = new S3Client({ region: config.AWS_REGION ?? 'sa-east-1' });
+
+	try {
+		await s3Client.send(
+			new PutObjectCommand({
+				Bucket: bucket,
+				Key: key,
+				Body: Buffer.from('nao e uma foto'),
+				ContentType: 'text/plain'
+			})
+		);
+	} catch (error) {
+		return fail(
+			'Não consegui escrever no bucket com as credenciais locais.',
+			error.message
+		);
+	}
+
+	console.log(`Objeto com key inválido criado: ${key}`);
+	console.log(
+		'O worker vai falhar com InvalidScanKey em cada recebimento. Com visibility de 360s,'
+	);
+	console.log(
+		'as 3 tentativas levam ~18min até a mensagem cair na ScansDLQ e o alarme disparar.'
+	);
+	console.log(
+		'Acompanhe com: npx serverless logs -f processScan --stage dev --tail'
+	);
+}
+
 async function runNegativeTests({ apiUrl, accessToken, buffer, contentType }) {
 	console.log('\n--- testes negativos ---');
 
@@ -265,23 +335,35 @@ async function main() {
 	}
 
 	log('[3/4]', 'Upload aceito pelo S3 (204).');
+	log('[4/4]', 'Esperando o consumer sair de PENDING...');
 
-	const scan = await api({
+	const { scan, elapsed } = await waitForStatusChange({
 		apiUrl,
-		method: 'GET',
-		path: `/scans/${scanId}`,
-		token: accessToken
+		accessToken,
+		scanId
 	});
 
-	log('[4/4]', `GET /scans/${scanId}:`);
+	if (!scan) {
+		console.error(
+			`\n✗ O scan seguiu PENDING por ${Math.round(elapsed / 1000)}s — o evento do S3 não chegou ao worker.`
+		);
+		console.error('  npx serverless logs -f processScan --stage dev');
+		process.exit(1);
+	}
+
+	console.log(`\nPENDING → ${scan.status} em ${(elapsed / 1000).toFixed(1)}s`);
 	console.log(JSON.stringify(scan, null, 2));
 
 	if (negative) {
 		await runNegativeTests({ apiUrl, accessToken, buffer, contentType });
 	}
 
+	if (dlq) {
+		await runDlqTest({ apiUrl, accessToken, contentType });
+	}
+
 	console.log(
-		'\nO scan continua PENDING de propósito — nada consome o upload até o passo 3.'
+		'\nO scan para em PROCESSING de propósito — a leitura da foto é o passo 5.'
 	);
 }
 

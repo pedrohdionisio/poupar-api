@@ -14,3 +14,12 @@ getScan:
         method: GET
         authorizer:
           name: CognitoAuthorizer
+processScan:
+  handler: src/main/functions/scans/processScan.handler
+  timeout: 60
+  memorySize: 512
+  events:
+    - sqs:
+        arn: !GetAtt ScansQueue.Arn
+        batchSize: 1
+        maximumConcurrency: 5

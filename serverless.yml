@@ -34,6 +34,7 @@ build:
 resources:
   - ${file(./sls/resources/UserPool.yml)}
   - ${file(./sls/resources/MainTable.yml)}
+  - ${file(./sls/resources/ScansQueue.yml)}
   - ${file(./sls/resources/UploadsBucket.yml)}
   - ${file(./sls/resources/APIGWCustomDomain.yml)}
 
