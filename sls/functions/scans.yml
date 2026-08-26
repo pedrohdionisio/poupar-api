@@ -6,6 +6,14 @@ createScan:
         method: POST
         authorizer:
           name: CognitoAuthorizer
+confirmScan:
+  handler: src/main/functions/scans/confirmScan.handler
+  events:
+    - httpApi:
+        path: /scans/{scanId}/confirm
+        method: POST
+        authorizer:
+          name: CognitoAuthorizer
 getScan:
   handler: src/main/functions/scans/getScan.handler
   events:

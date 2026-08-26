@@ -24,6 +24,7 @@ const args = process.argv.slice(2);
 const negative = args.includes('--negative');
 const dlq = args.includes('--dlq');
 const reupload = args.includes('--reupload');
+const confirm = args.includes('--confirm');
 const imagePath = args.find((arg) => !arg.startsWith('--')) ?? DEFAULT_IMAGE;
 
 function log(step, message) {
@@ -214,9 +215,11 @@ async function waitForStatusChange({ apiUrl, accessToken, scanId }) {
 	return { scan: null, last, elapsed: Date.now() - startedAt };
 }
 
-function printDraft(draft) {
-	const brl = (cents) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
+function brl(cents) {
+	return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
+}
 
+function printDraft(draft) {
 	console.log(`\nLoja:   ${draft.merchant.name}  (${draft.merchant.cnpj})`);
 	console.log(`Data:   ${draft.purchasedAt}`);
 	console.log(`Chave:  ${draft.accessKey ?? '(não lida)'}`);
@@ -234,6 +237,37 @@ function printDraft(draft) {
 
 	console.log(
 		`\n  soma dos itens ${brl(sum)} ${sum === draft.totalCents ? '✓ bate com o total' : `✗ diverge do total ${brl(draft.totalCents)}`}`
+	);
+}
+
+async function runConfirm({ apiUrl, accessToken, scanId, draft }) {
+	console.log('\n--- confirmando a revisão ---');
+
+	const purchase = await api({
+		apiUrl,
+		method: 'POST',
+		path: `/scans/${scanId}/confirm`,
+		token: accessToken,
+		body: draft
+	});
+
+	console.log(
+		`Compra ${purchase.purchaseId} — ${purchase.itemCount} itens, ${brl(purchase.totalCents)}, em ${purchase.purchasedAt}`
+	);
+
+	const scan = await api({
+		apiUrl,
+		method: 'GET',
+		path: `/scans/${scanId}`,
+		token: accessToken
+	});
+
+	console.log(
+		`Scan: ${scan.status}, purchaseId ${scan.purchaseId} ${
+			scan.status === 'DONE' && scan.purchaseId === purchase.purchaseId
+				? '✓'
+				: '✗ estado inesperado'
+		}`
 	);
 }
 
@@ -450,6 +484,10 @@ async function main() {
 		printDraft(scan.draft);
 	}
 
+	if (confirm && scan.draft) {
+		await runConfirm({ apiUrl, accessToken, scanId, draft: scan.draft });
+	}
+
 	if (reupload) {
 		await runReuploadTest({
 			apiUrl,
@@ -471,9 +509,11 @@ async function main() {
 		await runDlqTest({ apiUrl, accessToken, contentType });
 	}
 
-	console.log(
-		'\nO scan para em AWAITING_REVIEW de propósito — confirmar e virar compra é o passo 5b.'
-	);
+	if (!confirm) {
+		console.log(
+			'\nO scan parou em AWAITING_REVIEW — rode com --confirm para virar compra.'
+		);
+	}
 }
 
 main();

@@ -99,6 +99,7 @@ export class ScanRepository {
 		return this.finish({
 			accountId,
 			id,
+			expectedStatus: Scan.Status.PROCESSING,
 			UpdateExpression:
 				'SET #status = :status, #draft = :draft, #ocrS3Key = :ocrS3Key, #updatedAt = :updatedAt',
 			ExpressionAttributeNames: {
@@ -115,16 +116,41 @@ export class ScanRepository {
 		});
 	}
 
+	async markAsDone({
+		accountId,
+		id,
+		purchaseId
+	}: ScanRepository.MarkAsDoneParams): Promise<boolean> {
+		return this.finish({
+			accountId,
+			id,
+			expectedStatus: Scan.Status.AWAITING_REVIEW,
+			UpdateExpression:
+				'SET #status = :status, #purchaseId = :purchaseId, #updatedAt = :updatedAt',
+			ExpressionAttributeNames: {
+				'#status': 'status',
+				'#purchaseId': 'purchaseId',
+				'#updatedAt': 'updatedAt'
+			},
+			ExpressionAttributeValues: {
+				':status': Scan.Status.DONE,
+				':purchaseId': purchaseId
+			}
+		});
+	}
+
 	async markAsFailed({
 		accountId,
 		id,
 		errorCode,
 		purchaseId,
-		ocrS3Key
+		ocrS3Key,
+		expectedStatus = Scan.Status.PROCESSING
 	}: ScanRepository.MarkAsFailedParams): Promise<boolean> {
 		return this.finish({
 			accountId,
 			id,
+			expectedStatus,
 			UpdateExpression:
 				'SET #status = :status, #errorCode = :errorCode, #purchaseId = :purchaseId, #ocrS3Key = :ocrS3Key, #updatedAt = :updatedAt',
 			ExpressionAttributeNames: {
@@ -146,6 +172,7 @@ export class ScanRepository {
 	private async finish({
 		accountId,
 		id,
+		expectedStatus,
 		UpdateExpression,
 		ExpressionAttributeNames,
 		ExpressionAttributeValues
@@ -157,11 +184,11 @@ export class ScanRepository {
 				SK: ScanItem.getSK({ id })
 			},
 			UpdateExpression,
-			ConditionExpression: '#status = :processing',
+			ConditionExpression: '#status = :expectedStatus',
 			ExpressionAttributeNames,
 			ExpressionAttributeValues: {
 				...ExpressionAttributeValues,
-				':processing': Scan.Status.PROCESSING,
+				':expectedStatus': expectedStatus,
 				':updatedAt': new Date().toISOString()
 			}
 		});
@@ -206,17 +233,25 @@ export namespace ScanRepository {
 		ocrS3Key: string;
 	};
 
+	export type MarkAsDoneParams = {
+		accountId: string;
+		id: string;
+		purchaseId: string;
+	};
+
 	export type MarkAsFailedParams = {
 		accountId: string;
 		id: string;
 		errorCode: Scan.ErrorCode;
 		purchaseId: string | null;
 		ocrS3Key: string | null;
+		expectedStatus?: Scan.Status;
 	};
 
 	export type FinishParams = {
 		accountId: string;
 		id: string;
+		expectedStatus: Scan.Status;
 		UpdateExpression: string;
 		ExpressionAttributeNames: Record<string, string>;
 		ExpressionAttributeValues: Record<string, unknown>;
