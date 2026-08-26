@@ -3,6 +3,7 @@ import { Receipt } from '@application/entities/Receipt';
 import { Scan } from '@application/entities/Scan';
 import { InvalidCnpj } from '@application/errors/application/InvalidCnpj';
 import { ReceiptNotParsed } from '@application/errors/application/ReceiptNotParsed';
+import { ImportPurchaseNormalizer } from '@application/normalizers/ImportPurchaseNormalizer';
 import type { ReceiptExtractionGateway } from '@infra/gateways/ReceiptExtractionGateway';
 
 const CENTS_SCALE = 2;
@@ -46,7 +47,9 @@ export class ScanExtractionNormalizer {
 				seq: item.seq || index + 1,
 				description: item.description.trim(),
 				merchantCode: item.merchantCode.trim() || null,
-				gtin: item.gtin.replace(/\D/g, '') || null,
+				gtin: ImportPurchaseNormalizer.resolveGtin({
+					gtin: item.gtin.replace(/\D/g, '') || null
+				}),
 				quantityMilli: ScanExtractionNormalizer.toInt({
 					value: item.quantity,
 					scale: MILLI_SCALE

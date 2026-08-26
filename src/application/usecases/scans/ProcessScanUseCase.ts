@@ -7,6 +7,8 @@ import { FileStorageGateway } from '@infra/gateways/FileStorageGateway';
 import { ReceiptExtractionGateway } from '@infra/gateways/ReceiptExtractionGateway';
 import { Injectable } from '@kernel/decorators/Injectable';
 
+const MAX_ATTEMPTS = 3;
+
 @Injectable()
 export class ProcessScanUseCase {
 	constructor(
@@ -28,7 +30,7 @@ export class ProcessScanUseCase {
 			throw new ResourceNotFound(`Scan "${scanId}" not found.`);
 		}
 
-		const started = await this.scanRepository.startProcessing({
+		const { started, attempts } = await this.scanRepository.startProcessing({
 			accountId,
 			id: scanId
 		});
@@ -37,6 +39,27 @@ export class ProcessScanUseCase {
 			return;
 		}
 
+		try {
+			await this.extract({ accountId, scanId, scan });
+		} catch (error) {
+			if (attempts >= MAX_ATTEMPTS) {
+				await this.fail({
+					accountId,
+					scanId,
+					ocrS3Key: scan.ocrS3Key,
+					errorCode: Scan.ErrorCode.INTERNAL_ERROR
+				});
+			}
+
+			throw error;
+		}
+	}
+
+	private async extract({
+		accountId,
+		scanId,
+		scan
+	}: ProcessScanUseCase.ExtractParams): Promise<void> {
 		const photo = await this.fileStorageGateway.getFile({
 			key: scan.photoS3Key
 		});
@@ -157,10 +180,16 @@ export namespace ProcessScanUseCase {
 		>;
 	};
 
+	export type ExtractParams = {
+		accountId: string;
+		scanId: string;
+		scan: Scan;
+	};
+
 	export type FailParams = {
 		accountId: string;
 		scanId: string;
-		ocrS3Key: string;
+		ocrS3Key: string | null;
 		errorCode: Scan.ErrorCode;
 		purchaseId?: string | null;
 	};

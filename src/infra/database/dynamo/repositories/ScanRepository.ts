@@ -53,7 +53,7 @@ export class ScanRepository {
 	async startProcessing({
 		accountId,
 		id
-	}: ScanRepository.StartProcessingParams): Promise<boolean> {
+	}: ScanRepository.StartProcessingParams): Promise<ScanRepository.StartProcessingResult> {
 		const command = new UpdateCommand({
 			TableName: this.appConfig.database.dynamodb.mainTable,
 			Key: {
@@ -74,16 +74,17 @@ export class ScanRepository {
 				':processing': Scan.Status.PROCESSING,
 				':increment': 1,
 				':updatedAt': new Date().toISOString()
-			}
+			},
+			ReturnValues: 'UPDATED_NEW'
 		});
 
 		try {
-			await dynamoClient.send(command);
+			const { Attributes } = await dynamoClient.send(command);
 
-			return true;
+			return { started: true, attempts: Number(Attributes?.attempts ?? 0) };
 		} catch (error) {
 			if (error instanceof ConditionalCheckFailedException) {
-				return false;
+				return { started: false, attempts: 0 };
 			}
 
 			throw error;
@@ -224,6 +225,11 @@ export namespace ScanRepository {
 	export type StartProcessingParams = {
 		accountId: string;
 		id: string;
+	};
+
+	export type StartProcessingResult = {
+		started: boolean;
+		attempts: number;
 	};
 
 	export type MarkAsAwaitingReviewParams = {

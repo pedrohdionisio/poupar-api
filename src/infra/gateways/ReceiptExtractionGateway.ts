@@ -116,50 +116,115 @@ export class ReceiptExtractionGateway {
 	private static readonly ENDPOINT =
 		'https://generativelanguage.googleapis.com/v1beta/interactions';
 
+	private static readonly BUDGET_IN_MS = 150_000;
+
+	private static readonly MIN_RETRY_BUDGET_IN_MS = 30_000;
+
+	private static readonly MAX_REQUESTS = 3;
+
+	private static readonly RETRY_DELAY_IN_MS = 2_000;
+
 	constructor(private readonly appConfig: AppConfig) {}
 
 	async extract({
 		image,
 		mimeType
 	}: ReceiptExtractionGateway.ExtractParams): Promise<ReceiptExtractionGateway.ExtractResult> {
-		const response = await fetch(ReceiptExtractionGateway.ENDPOINT, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'x-goog-api-key': this.appConfig.ai.gemini.apiKey
-			},
-			body: JSON.stringify({
-				model: this.appConfig.ai.gemini.model,
-				input: [
-					{ type: 'text', text: PROMPT },
-					{
-						type: 'image',
-						mime_type: mimeType,
-						data: image.toString('base64')
-					}
-				],
-				response_format: {
-					type: 'text',
-					mime_type: 'application/json',
-					schema: RESPONSE_SCHEMA
+		const deadline = Date.now() + ReceiptExtractionGateway.BUDGET_IN_MS;
+		let requests = 0;
+
+		while (true) {
+			requests++;
+
+			try {
+				const rawJson = await this.request({
+					image,
+					mimeType,
+					timeoutInMs: deadline - Date.now()
+				});
+
+				return {
+					rawJson,
+					extraction: ReceiptExtractionGateway.parse({ rawJson })
+				};
+			} catch (error) {
+				const remaining = deadline - Date.now();
+				const retryable =
+					error instanceof ReceiptExtractionFailed &&
+					error.details?.retryable === true;
+
+				if (
+					!retryable ||
+					requests >= ReceiptExtractionGateway.MAX_REQUESTS ||
+					remaining < ReceiptExtractionGateway.MIN_RETRY_BUDGET_IN_MS
+				) {
+					throw error;
 				}
-			})
-		});
+
+				await new Promise((resolve) =>
+					setTimeout(
+						resolve,
+						ReceiptExtractionGateway.RETRY_DELAY_IN_MS * requests
+					)
+				);
+			}
+		}
+	}
+
+	private async request({
+		image,
+		mimeType,
+		timeoutInMs
+	}: ReceiptExtractionGateway.RequestParams): Promise<string> {
+		const response = await this.send({ image, mimeType, timeoutInMs });
 
 		if (!response.ok) {
 			throw new ReceiptExtractionFailed(
-				`Gemini responded ${response.status}: ${await response.text()}`
+				`Gemini responded ${response.status}: ${await response.text()}`,
+				response.status === 429 || response.status >= 500
 			);
 		}
 
-		const rawJson = ReceiptExtractionGateway.getOutputText({
+		return ReceiptExtractionGateway.getOutputText({
 			payload: await response.json()
 		});
+	}
 
-		return {
-			rawJson,
-			extraction: ReceiptExtractionGateway.parse({ rawJson })
-		};
+	private async send({
+		image,
+		mimeType,
+		timeoutInMs
+	}: ReceiptExtractionGateway.RequestParams): Promise<Response> {
+		try {
+			return await fetch(ReceiptExtractionGateway.ENDPOINT, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'x-goog-api-key': this.appConfig.ai.gemini.apiKey
+				},
+				body: JSON.stringify({
+					model: this.appConfig.ai.gemini.model,
+					input: [
+						{ type: 'text', text: PROMPT },
+						{
+							type: 'image',
+							mime_type: mimeType,
+							data: image.toString('base64')
+						}
+					],
+					response_format: {
+						type: 'text',
+						mime_type: 'application/json',
+						schema: RESPONSE_SCHEMA
+					}
+				}),
+				signal: AbortSignal.timeout(Math.max(timeoutInMs, 1))
+			});
+		} catch (error) {
+			throw new ReceiptExtractionFailed(
+				`Gemini request failed: ${(error as Error).message}`
+			);
+		}
 	}
 
 	private static getOutputText({
@@ -206,6 +271,12 @@ export namespace ReceiptExtractionGateway {
 	export type ExtractParams = {
 		image: Buffer;
 		mimeType: string;
+	};
+
+	export type RequestParams = {
+		image: Buffer;
+		mimeType: string;
+		timeoutInMs: number;
 	};
 
 	export type ExtractResult = {
