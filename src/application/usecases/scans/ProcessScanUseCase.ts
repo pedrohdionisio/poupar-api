@@ -1,4 +1,5 @@
 import { Scan } from '@application/entities/Scan';
+import { ReceiptExtractionFailed } from '@application/errors/application/ReceiptExtractionFailed';
 import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
 import { ScanExtractionNormalizer } from '@application/normalizers/ScanExtractionNormalizer';
 import { PurchaseDedupeRepository } from '@infra/database/dynamo/repositories/PurchaseDedupeRepository';
@@ -42,7 +43,9 @@ export class ProcessScanUseCase {
 		try {
 			await this.extract({ accountId, scanId, scan });
 		} catch (error) {
-			if (attempts >= MAX_ATTEMPTS) {
+			const transient = ProcessScanUseCase.isTransient({ error });
+
+			if (!transient || attempts >= MAX_ATTEMPTS) {
 				await this.fail({
 					accountId,
 					scanId,
@@ -141,6 +144,26 @@ export class ProcessScanUseCase {
 		});
 	}
 
+	private static isTransient({
+		error
+	}: ProcessScanUseCase.IsTransientParams): boolean {
+		if (error instanceof ReceiptExtractionFailed) {
+			return error.details?.retryable === true;
+		}
+
+		const { $retryable, $metadata } = error as ProcessScanUseCase.AwsError;
+
+		if ($retryable) {
+			return true;
+		}
+
+		const statusCode = $metadata?.httpStatusCode;
+
+		return (
+			statusCode !== undefined && (statusCode === 429 || statusCode >= 500)
+		);
+	}
+
 	private toDraft({
 		extraction
 	}: ProcessScanUseCase.ToDraftParams): Scan.Draft | null {
@@ -172,6 +195,15 @@ export namespace ProcessScanUseCase {
 	export type Input = {
 		accountId: string;
 		scanId: string;
+	};
+
+	export type IsTransientParams = {
+		error: unknown;
+	};
+
+	export type AwsError = {
+		$retryable?: unknown;
+		$metadata?: { httpStatusCode?: number };
 	};
 
 	export type ToDraftParams = {

@@ -118,6 +118,8 @@ export class ReceiptExtractionGateway {
 
 	private static readonly BUDGET_IN_MS = 150_000;
 
+	private static readonly REQUEST_TIMEOUT_IN_MS = 45_000;
+
 	private static readonly MIN_RETRY_BUDGET_IN_MS = 30_000;
 
 	private static readonly MAX_REQUESTS = 3;
@@ -140,7 +142,10 @@ export class ReceiptExtractionGateway {
 				const rawJson = await this.request({
 					image,
 					mimeType,
-					timeoutInMs: deadline - Date.now()
+					timeoutInMs: Math.min(
+						ReceiptExtractionGateway.REQUEST_TIMEOUT_IN_MS,
+						deadline - Date.now()
+					)
 				});
 
 				return {

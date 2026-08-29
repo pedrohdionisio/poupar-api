@@ -62,6 +62,10 @@ export class ScanItem {
 	static getSK({ id }: ScanItem.GetSKParams): ScanItem['keys']['SK'] {
 		return `SCAN#${id}`;
 	}
+
+	static getSKPrefix(): 'SCAN#' {
+		return 'SCAN#';
+	}
 }
 
 export namespace ScanItem {

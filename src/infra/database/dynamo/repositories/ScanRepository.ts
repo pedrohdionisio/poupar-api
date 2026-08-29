@@ -4,6 +4,7 @@ import {
 	GetCommand,
 	PutCommand,
 	PutCommandInput,
+	QueryCommand,
 	UpdateCommand
 } from '@aws-sdk/lib-dynamodb';
 import { dynamoClient } from '@infra/clients/dynamoClient';
@@ -33,6 +34,45 @@ export class ScanRepository {
 		return ScanItem.toEntity({
 			item: { ...(scanItem as ScanItem.ItemType) }
 		});
+	}
+
+	async listByAccount({
+		accountId,
+		status,
+		limit
+	}: ScanRepository.ListByAccountParams): Promise<Scan[]> {
+		const scans: ScanItem.ItemType[] = [];
+		let exclusiveStartKey: Record<string, unknown> | undefined;
+
+		do {
+			const command = new QueryCommand({
+				TableName: this.appConfig.database.dynamodb.mainTable,
+				KeyConditionExpression: '#PK = :PK AND begins_with(#SK, :SKPrefix)',
+				FilterExpression: status ? '#status = :status' : undefined,
+				ExpressionAttributeNames: {
+					'#PK': 'PK',
+					'#SK': 'SK',
+					...(status && { '#status': 'status' })
+				},
+				ExpressionAttributeValues: {
+					':PK': ScanItem.getPK({ accountId }),
+					':SKPrefix': ScanItem.getSKPrefix(),
+					...(status && { ':status': status })
+				},
+				ScanIndexForward: false,
+				ExclusiveStartKey: exclusiveStartKey,
+				Limit: limit
+			});
+
+			const { Items = [], LastEvaluatedKey } = await dynamoClient.send(command);
+
+			scans.push(...(Items as ScanItem.ItemType[]));
+			exclusiveStartKey = LastEvaluatedKey;
+		} while (exclusiveStartKey && (!limit || scans.length < limit));
+
+		const page = limit ? scans.slice(0, limit) : scans;
+
+		return page.map((scan) => ScanItem.toEntity({ item: scan }));
 	}
 
 	private getPutCommandInput({
@@ -212,6 +252,12 @@ export namespace ScanRepository {
 	export type GetByIdParams = {
 		accountId: string;
 		id: string;
+	};
+
+	export type ListByAccountParams = {
+		accountId: string;
+		status: Scan.Status | undefined;
+		limit: number | undefined;
 	};
 
 	export type GetPutCommandInputParams = {
