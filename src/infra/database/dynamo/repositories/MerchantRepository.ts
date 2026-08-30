@@ -18,12 +18,12 @@ import { MerchantItem } from '../items/MerchantItem';
 export class MerchantRepository {
 	constructor(private readonly appConfig: AppConfig) {}
 
-	async getByCnpj({ cnpj }: MerchantRepository.GetByCnpjParams) {
+	async getById({ accountId, id }: MerchantRepository.GetByIdParams) {
 		const command = new GetCommand({
 			TableName: this.appConfig.database.dynamodb.mainTable,
 			Key: {
-				PK: MerchantItem.getPK({ cnpj }),
-				SK: MerchantItem.getSK({ cnpj })
+				PK: MerchantItem.getPK({ accountId }),
+				SK: MerchantItem.getSK({ id })
 			}
 		});
 
@@ -36,6 +36,30 @@ export class MerchantRepository {
 		return MerchantItem.toEntity({
 			item: { ...(merchantItem as MerchantItem.ItemType) }
 		});
+	}
+
+	async listByAccount({
+		accountId
+	}: MerchantRepository.ListByAccountParams): Promise<Merchant[]> {
+		const command = new QueryCommand({
+			TableName: this.appConfig.database.dynamodb.mainTable,
+			KeyConditionExpression: '#PK = :PK AND begins_with(#SK, :SKPrefix)',
+			ExpressionAttributeNames: {
+				'#PK': 'PK',
+				'#SK': 'SK'
+			},
+			ExpressionAttributeValues: {
+				':PK': MerchantItem.getPK({ accountId }),
+				':SKPrefix': MerchantItem.getSKPrefix()
+			}
+		});
+
+		const { Items = [] } = await dynamoClient.send(command);
+		const merchants = Items as MerchantItem.ItemType[];
+
+		return merchants.map((merchant) =>
+			MerchantItem.toEntity({ item: merchant })
+		);
 	}
 
 	private getPutCommandInput({
@@ -52,7 +76,7 @@ export class MerchantRepository {
 	async create({ merchant }: MerchantRepository.CreateParams): Promise<void> {
 		const command = new PutCommand({
 			...this.getPutCommandInput({ merchant }),
-			ConditionExpression: 'attribute_not_exists(PK)'
+			ConditionExpression: 'attribute_not_exists(SK)'
 		});
 
 		try {
@@ -67,29 +91,28 @@ export class MerchantRepository {
 	}
 
 	async update({ merchant }: MerchantRepository.UpdateParams): Promise<void> {
-		const { name, fantasyName, category, address, updatedAt } =
-			MerchantItem.fromEntity({ entity: merchant }).toItem();
+		const { name, category, cnpj, updatedAt } = MerchantItem.fromEntity({
+			entity: merchant
+		}).toItem();
 
 		const command = new UpdateCommand({
 			TableName: this.appConfig.database.dynamodb.mainTable,
 			Key: {
-				PK: MerchantItem.getPK({ cnpj: merchant.cnpj }),
-				SK: MerchantItem.getSK({ cnpj: merchant.cnpj })
+				PK: MerchantItem.getPK({ accountId: merchant.accountId }),
+				SK: MerchantItem.getSK({ id: merchant.id })
 			},
 			UpdateExpression:
-				'SET #name = :name, #fantasyName = :fantasyName, #category = :category, #address = :address, #updatedAt = :updatedAt',
+				'SET #name = :name, #category = :category, #cnpj = :cnpj, #updatedAt = :updatedAt',
 			ExpressionAttributeNames: {
 				'#name': 'name',
-				'#fantasyName': 'fantasyName',
 				'#category': 'category',
-				'#address': 'address',
+				'#cnpj': 'cnpj',
 				'#updatedAt': 'updatedAt'
 			},
 			ExpressionAttributeValues: {
 				':name': name,
-				':fantasyName': fantasyName,
 				':category': category,
-				':address': address,
+				':cnpj': cnpj,
 				':updatedAt': updatedAt
 			}
 		});
@@ -97,43 +120,154 @@ export class MerchantRepository {
 		await dynamoClient.send(command);
 	}
 
-	async delete({ cnpj }: MerchantRepository.DeleteParams): Promise<void> {
+	async delete({ accountId, id }: MerchantRepository.DeleteParams) {
 		const command = new DeleteCommand({
 			TableName: this.appConfig.database.dynamodb.mainTable,
 			Key: {
-				PK: MerchantItem.getPK({ cnpj }),
-				SK: MerchantItem.getSK({ cnpj })
+				PK: MerchantItem.getPK({ accountId }),
+				SK: MerchantItem.getSK({ id })
 			}
 		});
 
 		await dynamoClient.send(command);
 	}
 
-	async list(): Promise<Merchant[]> {
-		const command = new QueryCommand({
+	async applyPurchase({
+		accountId,
+		merchantId,
+		purchaseId,
+		totalCents,
+		purchasedAt
+	}: MerchantRepository.ApplyPurchaseParams): Promise<void> {
+		const now = new Date().toISOString();
+		const purchasedAtISO = purchasedAt.toISOString();
+		const key = {
+			PK: MerchantItem.getPK({ accountId }),
+			SK: MerchantItem.getSK({ id: merchantId })
+		};
+
+		const applyCountersCommand = new UpdateCommand({
 			TableName: this.appConfig.database.dynamodb.mainTable,
-			IndexName: 'GSI1',
-			KeyConditionExpression: '#GSI1PK = :GSI1PK',
+			Key: key,
+			UpdateExpression: [
+				'SET #lastAppliedPurchaseId = :purchaseId,',
+				'#updatedAt = :now',
+				'ADD #purchaseCount :one, #totalSpentCents :totalCents'
+			].join(' '),
+			ConditionExpression:
+				'attribute_exists(SK) AND #lastAppliedPurchaseId <> :purchaseId',
 			ExpressionAttributeNames: {
-				'#GSI1PK': 'GSI1PK'
+				'#lastAppliedPurchaseId': 'lastAppliedPurchaseId',
+				'#updatedAt': 'updatedAt',
+				'#purchaseCount': 'purchaseCount',
+				'#totalSpentCents': 'totalSpentCents'
 			},
 			ExpressionAttributeValues: {
-				':GSI1PK': MerchantItem.getGSI1PK()
+				':now': now,
+				':purchaseId': purchaseId,
+				':one': 1,
+				':totalCents': totalCents
 			}
 		});
 
-		const { Items = [] } = await dynamoClient.send(command);
-		const merchants = Items as MerchantItem.ItemType[];
+		try {
+			await dynamoClient.send(applyCountersCommand);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return;
+			}
 
-		return merchants.map((merchant) =>
-			MerchantItem.toEntity({ item: merchant })
+			throw error;
+		}
+
+		const boundaryCommands = [
+			{ attribute: 'firstPurchaseAt', comparison: '>' },
+			{ attribute: 'lastPurchaseAt', comparison: '<' }
+		].map(
+			({ attribute, comparison }) =>
+				new UpdateCommand({
+					TableName: this.appConfig.database.dynamodb.mainTable,
+					Key: key,
+					UpdateExpression: 'SET #boundary = :purchasedAt, #updatedAt = :now',
+					ConditionExpression: [
+						'attribute_not_exists(#boundary)',
+						'OR attribute_type(#boundary, :nullType)',
+						`OR #boundary ${comparison} :purchasedAt`
+					].join(' '),
+					ExpressionAttributeNames: {
+						'#boundary': attribute,
+						'#updatedAt': 'updatedAt'
+					},
+					ExpressionAttributeValues: {
+						':purchasedAt': purchasedAtISO,
+						':nullType': 'NULL',
+						':now': now
+					}
+				})
 		);
+
+		await Promise.all(
+			boundaryCommands.map(async (command) => {
+				try {
+					await dynamoClient.send(command);
+				} catch (error) {
+					if (error instanceof ConditionalCheckFailedException) {
+						return;
+					}
+
+					throw error;
+				}
+			})
+		);
+	}
+
+	async adjustTotals({
+		accountId,
+		merchantId,
+		purchaseCountDelta,
+		totalCentsDelta
+	}: MerchantRepository.AdjustTotalsParams): Promise<void> {
+		const command = new UpdateCommand({
+			TableName: this.appConfig.database.dynamodb.mainTable,
+			Key: {
+				PK: MerchantItem.getPK({ accountId }),
+				SK: MerchantItem.getSK({ id: merchantId })
+			},
+			UpdateExpression:
+				'SET #updatedAt = :now ADD #purchaseCount :purchaseCountDelta, #totalSpentCents :totalCentsDelta',
+			ConditionExpression: 'attribute_exists(SK)',
+			ExpressionAttributeNames: {
+				'#updatedAt': 'updatedAt',
+				'#purchaseCount': 'purchaseCount',
+				'#totalSpentCents': 'totalSpentCents'
+			},
+			ExpressionAttributeValues: {
+				':now': new Date().toISOString(),
+				':purchaseCountDelta': purchaseCountDelta,
+				':totalCentsDelta': totalCentsDelta
+			}
+		});
+
+		try {
+			await dynamoClient.send(command);
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return;
+			}
+
+			throw error;
+		}
 	}
 }
 
 export namespace MerchantRepository {
-	export type GetByCnpjParams = {
-		cnpj: string;
+	export type GetByIdParams = {
+		accountId: string;
+		id: string;
+	};
+
+	export type ListByAccountParams = {
+		accountId: string;
 	};
 
 	export type GetPutCommandInputParams = {
@@ -149,6 +283,22 @@ export namespace MerchantRepository {
 	};
 
 	export type DeleteParams = {
-		cnpj: string;
+		accountId: string;
+		id: string;
+	};
+
+	export type ApplyPurchaseParams = {
+		accountId: string;
+		merchantId: string;
+		purchaseId: string;
+		totalCents: number;
+		purchasedAt: Date;
+	};
+
+	export type AdjustTotalsParams = {
+		accountId: string;
+		merchantId: string;
+		purchaseCountDelta: number;
+		totalCentsDelta: number;
 	};
 }

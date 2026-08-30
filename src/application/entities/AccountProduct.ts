@@ -14,7 +14,7 @@ export class AccountProduct {
 	minPriceCents: number;
 	maxPriceCents: number;
 	lastPurchaseAt: Date;
-	lastMerchantCnpj: string;
+	lastMerchantId: string;
 	purchaseCount: number;
 	lastAppliedPurchaseId: string;
 	updatedAt: Date;
@@ -31,7 +31,7 @@ export class AccountProduct {
 		this.minPriceCents = attr.minPriceCents;
 		this.maxPriceCents = attr.maxPriceCents;
 		this.lastPurchaseAt = attr.lastPurchaseAt;
-		this.lastMerchantCnpj = attr.lastMerchantCnpj;
+		this.lastMerchantId = attr.lastMerchantId;
 		this.purchaseCount = attr.purchaseCount;
 		this.lastAppliedPurchaseId = attr.lastAppliedPurchaseId;
 		this.createdAt = attr.createdAt ?? new Date();
@@ -52,7 +52,7 @@ export namespace AccountProduct {
 		minPriceCents: number;
 		maxPriceCents: number;
 		lastPurchaseAt: Date;
-		lastMerchantCnpj: string;
+		lastMerchantId: string;
 		purchaseCount: number;
 		lastAppliedPurchaseId: string;
 		createdAt?: Date;

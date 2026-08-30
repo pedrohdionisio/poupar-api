@@ -13,20 +13,19 @@ export class CreateMerchantUseCase {
 
 		await this.merchantRepository.create({ merchant });
 
-		return { cnpj: merchant.cnpj };
+		return { id: merchant.id };
 	}
 }
 
 export namespace CreateMerchantUseCase {
 	export type Input = {
-		cnpj: string;
+		accountId: string;
 		name: string;
-		fantasyName: string | null;
 		category: Merchant.Category;
-		address: string;
+		cnpj: string | null;
 	};
 
 	export type Output = {
-		cnpj: string;
+		id: string;
 	};
 }

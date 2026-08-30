@@ -20,6 +20,7 @@ export class UpdateMerchantController extends Controller<
 	}
 
 	protected override async handle({
+		accountId,
 		params,
 		body
 	}: Controller.Request<
@@ -29,7 +30,8 @@ export class UpdateMerchantController extends Controller<
 	>): Promise<Controller.Response<UpdateMerchantController.Response>> {
 		await this.updateMerchantUseCase.execute({
 			...body,
-			cnpj: params.cnpj
+			accountId,
+			id: params.merchantId
 		});
 
 		return {

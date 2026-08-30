@@ -1,7 +1,5 @@
-import { Merchant } from '@application/entities/Merchant';
 import { Receipt } from '@application/entities/Receipt';
 import { Scan } from '@application/entities/Scan';
-import { InvalidCnpj } from '@application/errors/application/InvalidCnpj';
 import { ReceiptNotParsed } from '@application/errors/application/ReceiptNotParsed';
 import { ImportPurchaseNormalizer } from '@application/normalizers/ImportPurchaseNormalizer';
 import type { ReceiptExtractionGateway } from '@infra/gateways/ReceiptExtractionGateway';
@@ -15,14 +13,9 @@ const SHORT_YEAR_LIMIT = 100;
 
 export class ScanExtractionNormalizer {
 	static toDraft({
-		extraction
+		extraction,
+		namesByGtin
 	}: ScanExtractionNormalizer.ToDraftParams): Scan.Draft {
-		const cnpj = extraction.merchant.cnpj.replace(/\D/g, '');
-
-		if (!Merchant.isValidCnpj({ cnpj })) {
-			throw new InvalidCnpj(cnpj);
-		}
-
 		const accessKey = extraction.accessKey.replace(/\D/g, '');
 
 		return {
@@ -30,12 +23,6 @@ export class ScanExtractionNormalizer {
 				value: extraction.issuedAt
 			}),
 			accessKey: accessKey.length === ACCESS_KEY_LENGTH ? accessKey : null,
-			merchant: {
-				cnpj,
-				name: extraction.merchant.name.trim(),
-				fantasyName: extraction.merchant.fantasyName.trim() || null,
-				address: extraction.merchant.address.trim()
-			},
 			totalCents: ScanExtractionNormalizer.toInt({
 				value: extraction.total,
 				scale: CENTS_SCALE
@@ -45,33 +32,55 @@ export class ScanExtractionNormalizer {
 				scale: CENTS_SCALE,
 				fallback: 0
 			}),
-			items: extraction.items.map((item, index) => ({
-				seq: item.seq || index + 1,
-				description: item.description.trim(),
-				merchantCode: item.merchantCode.trim() || null,
-				gtin: ImportPurchaseNormalizer.resolveGtin({
+			items: extraction.items.map((item, index) => {
+				const description = item.description.trim();
+				const gtin = ImportPurchaseNormalizer.resolveGtin({
 					gtin: item.gtin.replace(/\D/g, '') || null
-				}),
-				quantityMilli: ScanExtractionNormalizer.toInt({
-					value: item.quantity,
-					scale: MILLI_SCALE
-				}),
-				unit: Receipt.Unit[item.unit],
-				unitPriceCents: ScanExtractionNormalizer.toInt({
-					value: item.unitPrice,
-					scale: CENTS_SCALE
-				}),
-				totalCents: ScanExtractionNormalizer.toInt({
-					value: item.total,
-					scale: CENTS_SCALE
-				}),
-				discountCents: ScanExtractionNormalizer.toInt({
-					value: item.discount,
-					scale: CENTS_SCALE,
-					fallback: 0
-				})
-			}))
+				});
+
+				return {
+					seq: item.seq || index + 1,
+					description,
+					displayName: ScanExtractionNormalizer.resolveDisplayName({
+						normalizedName: item.normalizedName,
+						description,
+						gtin,
+						namesByGtin
+					}),
+					merchantCode: item.merchantCode.trim() || null,
+					gtin,
+					quantityMilli: ScanExtractionNormalizer.toInt({
+						value: item.quantity,
+						scale: MILLI_SCALE
+					}),
+					unit: Receipt.Unit[item.unit],
+					unitPriceCents: ScanExtractionNormalizer.toInt({
+						value: item.unitPrice,
+						scale: CENTS_SCALE
+					}),
+					totalCents: ScanExtractionNormalizer.toInt({
+						value: item.total,
+						scale: CENTS_SCALE
+					}),
+					discountCents: ScanExtractionNormalizer.toInt({
+						value: item.discount,
+						scale: CENTS_SCALE,
+						fallback: 0
+					})
+				};
+			})
 		};
+	}
+
+	private static resolveDisplayName({
+		normalizedName,
+		description,
+		gtin,
+		namesByGtin
+	}: ScanExtractionNormalizer.ResolveDisplayNameParams): string {
+		const known = gtin ? namesByGtin.get(gtin) : undefined;
+
+		return known ?? (normalizedName.trim() || description);
 	}
 
 	static toInt({
@@ -185,6 +194,14 @@ export class ScanExtractionNormalizer {
 export namespace ScanExtractionNormalizer {
 	export type ToDraftParams = {
 		extraction: ReceiptExtractionGateway.Extraction;
+		namesByGtin: Map<string, string>;
+	};
+
+	export type ResolveDisplayNameParams = {
+		normalizedName: string;
+		description: string;
+		gtin: string | null;
+		namesByGtin: Map<string, string>;
 	};
 
 	export type ToIntParams = {

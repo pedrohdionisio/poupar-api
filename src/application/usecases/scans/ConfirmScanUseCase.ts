@@ -60,6 +60,7 @@ export class ConfirmScanUseCase {
 			return await this.importPurchaseUseCase.execute({
 				...payload,
 				accountId,
+				merchantId: scan.merchantId,
 				source: Purchase.Source.OCR,
 				photoS3Key: scan.photoS3Key,
 				ocrS3Key: scan.ocrS3Key
@@ -84,7 +85,7 @@ export class ConfirmScanUseCase {
 export namespace ConfirmScanUseCase {
 	export type Payload = Omit<
 		ImportPurchaseUseCase.Input,
-		'accountId' | 'source' | 'photoS3Key' | 'ocrS3Key'
+		'accountId' | 'merchantId' | 'source' | 'photoS3Key' | 'ocrS3Key'
 	>;
 
 	export type Input = Payload & {

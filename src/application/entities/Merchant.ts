@@ -1,21 +1,33 @@
+import { ulid } from 'ulid';
+
 export class Merchant {
 	static readonly cnpjPattern = /^\d{14}$/;
 
-	readonly cnpj: string;
+	readonly id: string;
+	readonly accountId: string;
 	readonly createdAt: Date;
 
 	name: string;
-	fantasyName: string | null;
 	category: Merchant.Category;
-	address: string;
+	cnpj: string | null;
+	purchaseCount: number;
+	totalSpentCents: number;
+	firstPurchaseAt: Date | null;
+	lastPurchaseAt: Date | null;
+	lastAppliedPurchaseId: string | null;
 	updatedAt: Date;
 
 	constructor(attr: Merchant.Attributes) {
-		this.cnpj = attr.cnpj;
+		this.id = attr.id ?? ulid();
+		this.accountId = attr.accountId;
 		this.name = attr.name;
-		this.fantasyName = attr.fantasyName;
 		this.category = attr.category;
-		this.address = attr.address;
+		this.cnpj = attr.cnpj;
+		this.purchaseCount = attr.purchaseCount ?? 0;
+		this.totalSpentCents = attr.totalSpentCents ?? 0;
+		this.firstPurchaseAt = attr.firstPurchaseAt ?? null;
+		this.lastPurchaseAt = attr.lastPurchaseAt ?? null;
+		this.lastAppliedPurchaseId = attr.lastAppliedPurchaseId ?? null;
 		this.createdAt = attr.createdAt ?? new Date();
 		this.updatedAt = attr.updatedAt ?? new Date();
 	}
@@ -63,11 +75,16 @@ export namespace Merchant {
 	export type CalculateCnpjCheckDigitParams = { digits: number[] };
 
 	export type Attributes = {
-		cnpj: string;
+		id?: string;
+		accountId: string;
 		name: string;
-		fantasyName: string | null;
 		category: Merchant.Category;
-		address: string;
+		cnpj: string | null;
+		purchaseCount?: number;
+		totalSpentCents?: number;
+		firstPurchaseAt?: Date | null;
+		lastPurchaseAt?: Date | null;
+		lastAppliedPurchaseId?: string | null;
 		createdAt?: Date;
 		updatedAt?: Date;
 	};

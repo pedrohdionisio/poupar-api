@@ -126,7 +126,7 @@ export class PurchaseRepository {
 
 	async update({ purchase }: PurchaseRepository.UpdateParams): Promise<void> {
 		const {
-			merchantCnpj,
+			merchantId,
 			merchantName,
 			category,
 			totalCents,
@@ -145,10 +145,10 @@ export class PurchaseRepository {
 				})
 			},
 			UpdateExpression:
-				'SET #merchantCnpj = :merchantCnpj, #merchantName = :merchantName, #category = :category, #totalCents = :totalCents, #discountCents = :discountCents, #itemCount = :itemCount, #updatedAt = :updatedAt',
+				'SET #merchantId = :merchantId, #merchantName = :merchantName, #category = :category, #totalCents = :totalCents, #discountCents = :discountCents, #itemCount = :itemCount, #updatedAt = :updatedAt',
 			ConditionExpression: 'attribute_exists(PK)',
 			ExpressionAttributeNames: {
-				'#merchantCnpj': 'merchantCnpj',
+				'#merchantId': 'merchantId',
 				'#merchantName': 'merchantName',
 				'#category': 'category',
 				'#totalCents': 'totalCents',
@@ -157,7 +157,7 @@ export class PurchaseRepository {
 				'#updatedAt': 'updatedAt'
 			},
 			ExpressionAttributeValues: {
-				':merchantCnpj': merchantCnpj,
+				':merchantId': merchantId,
 				':merchantName': merchantName,
 				':category': category,
 				':totalCents': totalCents,

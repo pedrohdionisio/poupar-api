@@ -27,7 +27,7 @@ export class ListAccountProductsUseCase {
 			minPriceCents: accountProduct.minPriceCents,
 			maxPriceCents: accountProduct.maxPriceCents,
 			lastPurchaseAt: accountProduct.lastPurchaseAt,
-			lastMerchantCnpj: accountProduct.lastMerchantCnpj,
+			lastMerchantId: accountProduct.lastMerchantId,
 			purchaseCount: accountProduct.purchaseCount,
 			createdAt: accountProduct.createdAt,
 			updatedAt: accountProduct.updatedAt

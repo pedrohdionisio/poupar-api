@@ -20,6 +20,7 @@ export class ListScansUseCase {
 		return scans.map((scan) => ({
 			id: scan.id,
 			accountId: scan.accountId,
+			merchantId: scan.merchantId,
 			status: scan.status,
 			provider: scan.provider,
 			purchaseId: scan.purchaseId,
@@ -39,7 +40,6 @@ export class ListScansUseCase {
 		}
 
 		return {
-			merchantName: draft.merchant.fantasyName ?? draft.merchant.name,
 			purchasedAt: draft.purchasedAt,
 			totalCents: draft.totalCents,
 			itemCount: draft.items.length
@@ -55,7 +55,6 @@ export namespace ListScansUseCase {
 	};
 
 	export type Summary = {
-		merchantName: string;
 		purchasedAt: string;
 		totalCents: number;
 		itemCount: number;

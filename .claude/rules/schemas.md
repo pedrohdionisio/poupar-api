@@ -34,8 +34,11 @@ export type UpdateAccountBody = z.infer<typeof updateAccountBodySchema>;
   `xxxQuerySchema`. Endpoint sem body não declara `bodySchema`.
 - Exporte **sempre** o tipo inferido de cada schema (`z.infer<typeof ...>`) — é ele que tipa
   `Controller.Request` na controller.
-- Ids gerados por nós: `z.ulid()`. Chave natural externa tem validação própria — CNPJ
-  `z.string().regex(/^\d{14}$/)`, chave de acesso `z.string().length(44)`, GTIN por tamanho.
+- Ids gerados por nós: `z.ulid()` — inclui `merchantId`, que é ULID e nunca CNPJ. Identificador
+  externo tem validação própria: chave de acesso `z.string().length(44)`, GTIN por tamanho, CNPJ
+  `z.string().regex(/^\d{14}$/)` mais `.refine(Merchant.isValidCnpj)` — e o CNPJ é sempre
+  **opcional** (`.nullish().default(null)`), nunca campo obrigatório de entrada.
+- `productKey` é sha1 puro: `z.string().regex(/^[a-f0-9]{40}$/)`.
 - Enums vêm do domínio: `z.enum(Entidade.Enum)` — nunca redeclare os valores no schema.
 - Valores monetários: `z.int().nonnegative()` no campo `...Cents`. Nunca aceite float e converta
   depois; o cliente manda centavos.

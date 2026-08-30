@@ -19,6 +19,7 @@ export class GetMerchantController extends Controller<
 	}
 
 	protected override async handle({
+		accountId,
 		params
 	}: Controller.Request<
 		'private',
@@ -26,7 +27,8 @@ export class GetMerchantController extends Controller<
 		GetMerchantParams
 	>): Promise<Controller.Response<GetMerchantController.Response>> {
 		const merchant = await this.getMerchantUseCase.execute({
-			cnpj: params.cnpj
+			accountId,
+			id: params.merchantId
 		});
 
 		return {

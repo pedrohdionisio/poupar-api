@@ -5,7 +5,7 @@ export class PricePoint {
 	readonly productKey: string;
 	readonly purchaseId: string;
 	readonly purchasedAt: Date;
-	readonly merchantCnpj: string;
+	readonly merchantId: string;
 	readonly unitPriceCents: number;
 	readonly quantityMilli: number;
 	readonly unit: Receipt.Unit;
@@ -15,7 +15,7 @@ export class PricePoint {
 		this.productKey = attr.productKey;
 		this.purchaseId = attr.purchaseId;
 		this.purchasedAt = attr.purchasedAt;
-		this.merchantCnpj = attr.merchantCnpj;
+		this.merchantId = attr.merchantId;
 		this.unitPriceCents = attr.unitPriceCents;
 		this.quantityMilli = attr.quantityMilli;
 		this.unit = attr.unit;
@@ -28,7 +28,7 @@ export namespace PricePoint {
 		productKey: string;
 		purchaseId: string;
 		purchasedAt: Date;
-		merchantCnpj: string;
+		merchantId: string;
 		unitPriceCents: number;
 		quantityMilli: number;
 		unit: Receipt.Unit;

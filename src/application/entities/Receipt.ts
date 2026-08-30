@@ -29,6 +29,7 @@ export namespace Receipt {
 		seq: number;
 		productKey: string;
 		description: string;
+		displayName: string;
 		normalizedName: string;
 		gtin: string | null;
 		merchantCode: string | null;

@@ -10,7 +10,7 @@ getMerchant:
   handler: src/main/functions/merchants/getMerchant.handler
   events:
     - httpApi:
-        path: /merchants/{cnpj}
+        path: /merchants/{merchantId}
         method: GET
         authorizer:
           name: CognitoAuthorizer
@@ -26,7 +26,7 @@ updateMerchant:
   handler: src/main/functions/merchants/updateMerchant.handler
   events:
     - httpApi:
-        path: /merchants/{cnpj}
+        path: /merchants/{merchantId}
         method: PUT
         authorizer:
           name: CognitoAuthorizer
@@ -34,7 +34,7 @@ deleteMerchant:
   handler: src/main/functions/merchants/deleteMerchant.handler
   events:
     - httpApi:
-        path: /merchants/{cnpj}
+        path: /merchants/{merchantId}
         method: DELETE
         authorizer:
           name: CognitoAuthorizer

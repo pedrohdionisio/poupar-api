@@ -2,6 +2,7 @@ import { Scan } from '@application/entities/Scan';
 import { ReceiptExtractionFailed } from '@application/errors/application/ReceiptExtractionFailed';
 import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
 import { ScanExtractionNormalizer } from '@application/normalizers/ScanExtractionNormalizer';
+import { AccountProductRepository } from '@infra/database/dynamo/repositories/AccountProductRepository';
 import { PurchaseDedupeRepository } from '@infra/database/dynamo/repositories/PurchaseDedupeRepository';
 import { ScanRepository } from '@infra/database/dynamo/repositories/ScanRepository';
 import { FileStorageGateway } from '@infra/gateways/FileStorageGateway';
@@ -9,12 +10,14 @@ import { ReceiptExtractionGateway } from '@infra/gateways/ReceiptExtractionGatew
 import { Injectable } from '@kernel/decorators/Injectable';
 
 const MAX_ATTEMPTS = 3;
+const MAX_KNOWN_PRODUCTS = 400;
 
 @Injectable()
 export class ProcessScanUseCase {
 	constructor(
 		private readonly scanRepository: ScanRepository,
 		private readonly purchaseDedupeRepository: PurchaseDedupeRepository,
+		private readonly accountProductRepository: AccountProductRepository,
 		private readonly fileStorageGateway: FileStorageGateway,
 		private readonly receiptExtractionGateway: ReceiptExtractionGateway
 	) {}
@@ -63,14 +66,16 @@ export class ProcessScanUseCase {
 		scanId,
 		scan
 	}: ProcessScanUseCase.ExtractParams): Promise<void> {
-		const photo = await this.fileStorageGateway.getFile({
-			key: scan.photoS3Key
-		});
+		const [photo, vocabulary] = await Promise.all([
+			this.fileStorageGateway.getFile({ key: scan.photoS3Key }),
+			this.getVocabulary({ accountId })
+		]);
 
 		const { rawJson, extraction } = await this.receiptExtractionGateway.extract(
 			{
 				image: photo.body,
-				mimeType: photo.contentType
+				mimeType: photo.contentType,
+				knownProducts: vocabulary.knownProducts
 			}
 		);
 
@@ -104,7 +109,10 @@ export class ProcessScanUseCase {
 			return;
 		}
 
-		const draft = this.toDraft({ extraction });
+		const draft = this.toDraft({
+			extraction,
+			namesByGtin: vocabulary.namesByGtin
+		});
 
 		if (!draft) {
 			await this.fail({
@@ -164,11 +172,37 @@ export class ProcessScanUseCase {
 		);
 	}
 
+	private async getVocabulary({
+		accountId
+	}: ProcessScanUseCase.GetVocabularyParams): Promise<ProcessScanUseCase.Vocabulary> {
+		const accountProducts = await this.accountProductRepository.listByAccount({
+			accountId
+		});
+
+		const mostRecent = accountProducts
+			.sort((a, b) => b.lastPurchaseAt.getTime() - a.lastPurchaseAt.getTime())
+			.slice(0, MAX_KNOWN_PRODUCTS);
+
+		const namesByGtin = new Map<string, string>();
+
+		for (const accountProduct of mostRecent) {
+			if (accountProduct.gtin) {
+				namesByGtin.set(accountProduct.gtin, accountProduct.name);
+			}
+		}
+
+		return {
+			knownProducts: mostRecent.map((accountProduct) => accountProduct.name),
+			namesByGtin
+		};
+	}
+
 	private toDraft({
-		extraction
+		extraction,
+		namesByGtin
 	}: ProcessScanUseCase.ToDraftParams): Scan.Draft | null {
 		try {
-			return ScanExtractionNormalizer.toDraft({ extraction });
+			return ScanExtractionNormalizer.toDraft({ extraction, namesByGtin });
 		} catch {
 			return null;
 		}
@@ -206,10 +240,20 @@ export namespace ProcessScanUseCase {
 		$metadata?: { httpStatusCode?: number };
 	};
 
+	export type GetVocabularyParams = {
+		accountId: string;
+	};
+
+	export type Vocabulary = {
+		knownProducts: string[];
+		namesByGtin: Map<string, string>;
+	};
+
 	export type ToDraftParams = {
 		extraction: NonNullable<
 			ReceiptExtractionGateway.ExtractResult['extraction']
 		>;
+		namesByGtin: Map<string, string>;
 	};
 
 	export type ExtractParams = {

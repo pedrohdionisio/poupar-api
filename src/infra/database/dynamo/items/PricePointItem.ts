@@ -32,7 +32,7 @@ export class PricePointItem {
 			productKey: entity.productKey,
 			purchaseId: entity.purchaseId,
 			purchasedAt: entity.purchasedAt.toISOString(),
-			merchantCnpj: entity.merchantCnpj,
+			merchantId: entity.merchantId,
 			unitPriceCents: entity.unitPriceCents,
 			quantityMilli: entity.quantityMilli,
 			unit: entity.unit
@@ -45,7 +45,7 @@ export class PricePointItem {
 			productKey: item.productKey,
 			purchaseId: item.purchaseId,
 			purchasedAt: new Date(item.purchasedAt),
-			merchantCnpj: item.merchantCnpj,
+			merchantId: item.merchantId,
 			unitPriceCents: item.unitPriceCents,
 			quantityMilli: item.quantityMilli,
 			unit: item.unit
@@ -90,7 +90,7 @@ export namespace PricePointItem {
 		productKey: string;
 		purchaseId: string;
 		purchasedAt: string;
-		merchantCnpj: string;
+		merchantId: string;
 		unitPriceCents: number;
 		quantityMilli: number;
 		unit: Receipt.Unit;

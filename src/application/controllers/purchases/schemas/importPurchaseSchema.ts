@@ -1,28 +1,15 @@
-import { Merchant } from '@application/entities/Merchant';
 import { Purchase } from '@application/entities/Purchase';
 import { Receipt } from '@application/entities/Receipt';
 import z from 'zod';
 
-const importPurchaseMerchantSchema = z.object({
-	cnpj: z
-		.string()
-		.regex(/^\d{14}$/, '"cnpj" must have exactly 14 digits')
-		.refine(
-			(cnpj) => Merchant.isValidCnpj({ cnpj }),
-			'"cnpj" has invalid check digits'
-		),
-	name: z.string().min(1, '"name" is required'),
-	fantasyName: z
-		.string()
-		.min(1, '"fantasyName" cannot be empty')
-		.nullish()
-		.default(null),
-	address: z.string().min(1, '"address" is required')
-});
-
 const importPurchaseItemSchema = z.object({
 	seq: z.int().nonnegative(),
 	description: z.string().min(1, '"description" is required'),
+	displayName: z
+		.string()
+		.min(1, '"displayName" cannot be empty')
+		.nullish()
+		.default(null),
 	merchantCode: z
 		.string()
 		.min(1, '"merchantCode" cannot be empty')
@@ -58,7 +45,7 @@ export const importPurchaseBodySchema = z.object({
 		.min(1, '"ocrS3Key" cannot be empty')
 		.nullish()
 		.default(null),
-	merchant: importPurchaseMerchantSchema,
+	merchantId: z.ulid(),
 	totalCents: z.int().nonnegative(),
 	discountCents: z.int().nonnegative().default(0),
 	items: z

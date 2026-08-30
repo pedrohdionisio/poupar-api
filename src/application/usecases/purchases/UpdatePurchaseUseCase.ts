@@ -1,6 +1,4 @@
-import { Merchant } from '@application/entities/Merchant';
 import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
-import { AccountMerchantRepository } from '@infra/database/dynamo/repositories/AccountMerchantRepository';
 import { MerchantRepository } from '@infra/database/dynamo/repositories/MerchantRepository';
 import { PurchaseRepository } from '@infra/database/dynamo/repositories/PurchaseRepository';
 import { Injectable } from '@kernel/decorators/Injectable';
@@ -9,8 +7,7 @@ import { Injectable } from '@kernel/decorators/Injectable';
 export class UpdatePurchaseUseCase {
 	constructor(
 		private readonly purchaseRepository: PurchaseRepository,
-		private readonly merchantRepository: MerchantRepository,
-		private readonly accountMerchantRepository: AccountMerchantRepository
+		private readonly merchantRepository: MerchantRepository
 	) {}
 
 	async execute(
@@ -28,20 +25,21 @@ export class UpdatePurchaseUseCase {
 			throw new ResourceNotFound('Purchase not found.');
 		}
 
-		const merchant = await this.merchantRepository.getByCnpj({
-			cnpj: input.merchantCnpj
+		const merchant = await this.merchantRepository.getById({
+			accountId: input.accountId,
+			id: input.merchantId
 		});
 
 		if (!merchant) {
 			throw new ResourceNotFound('Merchant not found.');
 		}
 
-		const previousCnpj = purchase.merchantCnpj;
+		const previousMerchantId = purchase.merchantId;
 		const previousTotalCents = purchase.totalCents;
 
-		purchase.merchantCnpj = input.merchantCnpj;
-		purchase.merchantName = input.merchantName;
-		purchase.category = input.category;
+		purchase.merchantId = merchant.id;
+		purchase.merchantName = merchant.name;
+		purchase.category = merchant.category;
 		purchase.totalCents = input.totalCents;
 		purchase.discountCents = input.discountCents;
 		purchase.itemCount = input.itemCount;
@@ -49,10 +47,10 @@ export class UpdatePurchaseUseCase {
 
 		await this.purchaseRepository.update({ purchase });
 
-		if (previousCnpj === purchase.merchantCnpj) {
-			await this.accountMerchantRepository.adjustTotals({
+		if (previousMerchantId === purchase.merchantId) {
+			await this.merchantRepository.adjustTotals({
 				accountId: input.accountId,
-				cnpj: purchase.merchantCnpj,
+				merchantId: purchase.merchantId,
 				purchaseCountDelta: 0,
 				totalCentsDelta: purchase.totalCents - previousTotalCents
 			});
@@ -60,23 +58,16 @@ export class UpdatePurchaseUseCase {
 			return;
 		}
 
-		await this.accountMerchantRepository.adjustTotals({
+		await this.merchantRepository.adjustTotals({
 			accountId: input.accountId,
-			cnpj: previousCnpj,
+			merchantId: previousMerchantId,
 			purchaseCountDelta: -1,
 			totalCentsDelta: -previousTotalCents
 		});
 
-		await this.accountMerchantRepository.deleteIfEmpty({
+		await this.merchantRepository.applyPurchase({
 			accountId: input.accountId,
-			cnpj: previousCnpj
-		});
-
-		await this.accountMerchantRepository.applyPurchase({
-			accountId: input.accountId,
-			cnpj: purchase.merchantCnpj,
-			name: purchase.merchantName,
-			category: purchase.category,
+			merchantId: purchase.merchantId,
 			purchaseId: purchase.id,
 			totalCents: purchase.totalCents,
 			purchasedAt: purchase.purchasedAt
@@ -89,9 +80,7 @@ export namespace UpdatePurchaseUseCase {
 		accountId: string;
 		id: string;
 		purchasedAt: string;
-		merchantCnpj: string;
-		merchantName: string;
-		category: Merchant.Category;
+		merchantId: string;
 		totalCents: number;
 		discountCents: number;
 		itemCount: number;

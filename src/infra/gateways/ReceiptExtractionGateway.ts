@@ -14,14 +14,43 @@ Regras:
 - unit: use UN, KG ou L. Mapeie UNID/PC/UND para UN e LT para L.
 - gtin: o código de barras impresso na linha do item, apenas dígitos.
 - merchantCode: o código interno do item, quando houver e for diferente do código de barras.
-- cnpj: apenas os 14 dígitos, sem pontuação.
 - accessKey: a chave de acesso de 44 dígitos, sem espaços.
 - issuedAt: a data e a hora de emissão exatamente como impressas.
 - discount: o desconto da linha, ou do cupom no total. Use "0" quando não houver.
 - Campo que você não conseguir ler no papel: devolva string vazia.
 
+O estabelecimento já é conhecido — não extraia CNPJ, razão social nem endereço.
+
+## normalizedName
+
+Além da transcrição literal em "description", devolva em "normalizedName" o nome comercial do
+produto, legível para uma pessoa. Este campo é o que identifica o produto ao longo do tempo, então
+precisa sair IGUAL para o mesmo produto em notas diferentes.
+
+- Title Case, acentuação correta.
+- Expanda abreviações: DET → Detergente, REFRIG → Refrigerante, ACHOC → Achocolatado,
+  BISC → Biscoito, MARG → Margarina, INT → Integral, DESN → Desnatado.
+- Formato: "<Produto> <Marca> <Variante> <Tamanho>". Omita a parte que não estiver impressa.
+- MANTENHA o tamanho/volume quando impresso ("500ml", "1L", "5kg") — tamanhos diferentes são
+  produtos diferentes. NÃO inclua peso variável de item vendido a granel por KG.
+- Não inclua código interno, código de barras, sigla de tributação nem sufixo de embalagem solto.
+
+Exemplos:
+- "BANAN NANIC KG" → "Banana Nanica"
+- "DET LOUCA YPE 500ML" → "Detergente Ypê 500ml"
+- "LEITE ITALAC INT 1L" → "Leite Italac Integral 1L"
+- "REFRIG COCA COLA 2L" → "Refrigerante Coca-Cola 2L"
+- "ACHOC PO NESCAU 380G" → "Achocolatado em Pó Nescau 380g"
+- "PAO FRANCES KG" → "Pão Francês"
+
 Se a imagem não for um cupom fiscal, ou estiver ilegível a ponto de você não conseguir extrair
 os itens, devolva readable = false.`;
+
+const KNOWN_PRODUCTS_PROMPT = `## Produtos já cadastrados nesta conta
+
+Se um item do cupom for o MESMO produto de um destes nomes, devolva em "normalizedName" o nome da
+lista, copiado exatamente, caractere por caractere. Só invente um nome novo quando o produto
+realmente não estiver na lista.`;
 
 const RESPONSE_SCHEMA = {
 	type: 'object',
@@ -30,17 +59,6 @@ const RESPONSE_SCHEMA = {
 		readable: {
 			type: 'boolean',
 			description: 'false quando a imagem não é um cupom fiscal legível'
-		},
-		merchant: {
-			type: 'object',
-			additionalProperties: false,
-			properties: {
-				cnpj: { type: 'string' },
-				name: { type: 'string' },
-				fantasyName: { type: 'string' },
-				address: { type: 'string' }
-			},
-			required: ['cnpj', 'name', 'fantasyName', 'address']
 		},
 		issuedAt: { type: 'string', description: 'data e hora como impressas' },
 		accessKey: { type: 'string' },
@@ -54,6 +72,10 @@ const RESPONSE_SCHEMA = {
 				properties: {
 					seq: { type: 'integer' },
 					description: { type: 'string' },
+					normalizedName: {
+						type: 'string',
+						description: 'nome comercial padronizado do produto'
+					},
 					gtin: { type: 'string' },
 					merchantCode: { type: 'string' },
 					quantity: { type: 'string' },
@@ -65,6 +87,7 @@ const RESPONSE_SCHEMA = {
 				required: [
 					'seq',
 					'description',
+					'normalizedName',
 					'gtin',
 					'merchantCode',
 					'quantity',
@@ -76,25 +99,11 @@ const RESPONSE_SCHEMA = {
 			}
 		}
 	},
-	required: [
-		'readable',
-		'merchant',
-		'issuedAt',
-		'accessKey',
-		'total',
-		'discount',
-		'items'
-	]
+	required: ['readable', 'issuedAt', 'accessKey', 'total', 'discount', 'items']
 };
 
 const extractionSchema = z.object({
 	readable: z.boolean(),
-	merchant: z.object({
-		cnpj: z.string(),
-		name: z.string(),
-		fantasyName: z.string(),
-		address: z.string()
-	}),
 	issuedAt: z.string(),
 	accessKey: z.string(),
 	total: z.string(),
@@ -103,6 +112,7 @@ const extractionSchema = z.object({
 		z.object({
 			seq: z.int(),
 			description: z.string(),
+			normalizedName: z.string(),
 			gtin: z.string(),
 			merchantCode: z.string(),
 			quantity: z.string(),
@@ -134,13 +144,17 @@ export class ReceiptExtractionGateway {
 
 	private static readonly RETRY_DELAY_IN_MS = 2_000;
 
+	private static readonly MAX_KNOWN_PRODUCTS = 400;
+
 	constructor(private readonly appConfig: AppConfig) {}
 
 	async extract({
 		image,
-		mimeType
+		mimeType,
+		knownProducts
 	}: ReceiptExtractionGateway.ExtractParams): Promise<ReceiptExtractionGateway.ExtractResult> {
 		const deadline = Date.now() + ReceiptExtractionGateway.BUDGET_IN_MS;
+		const prompt = ReceiptExtractionGateway.buildPrompt({ knownProducts });
 		let requests = 0;
 
 		while (true) {
@@ -150,6 +164,7 @@ export class ReceiptExtractionGateway {
 				const rawJson = await this.request({
 					image,
 					mimeType,
+					prompt,
 					timeoutInMs: Math.min(
 						ReceiptExtractionGateway.REQUEST_TIMEOUT_IN_MS,
 						deadline - Date.now()
@@ -184,12 +199,28 @@ export class ReceiptExtractionGateway {
 		}
 	}
 
+	private static buildPrompt({
+		knownProducts
+	}: ReceiptExtractionGateway.BuildPromptParams): string {
+		if (!knownProducts.length) {
+			return PROMPT;
+		}
+
+		const list = knownProducts
+			.slice(0, ReceiptExtractionGateway.MAX_KNOWN_PRODUCTS)
+			.map((name) => `- ${name}`)
+			.join('\n');
+
+		return `${PROMPT}\n\n${KNOWN_PRODUCTS_PROMPT}\n\n${list}`;
+	}
+
 	private async request({
 		image,
 		mimeType,
+		prompt,
 		timeoutInMs
 	}: ReceiptExtractionGateway.RequestParams): Promise<string> {
-		const response = await this.send({ image, mimeType, timeoutInMs });
+		const response = await this.send({ image, mimeType, prompt, timeoutInMs });
 
 		if (!response.ok) {
 			throw new ReceiptExtractionFailed(
@@ -206,6 +237,7 @@ export class ReceiptExtractionGateway {
 	private async send({
 		image,
 		mimeType,
+		prompt,
 		timeoutInMs
 	}: ReceiptExtractionGateway.RequestParams): Promise<Response> {
 		try {
@@ -222,7 +254,7 @@ export class ReceiptExtractionGateway {
 						{
 							role: 'user',
 							content: [
-								{ type: 'input_text', text: PROMPT },
+								{ type: 'input_text', text: prompt },
 								{
 									type: 'input_image',
 									detail: ReceiptExtractionGateway.IMAGE_DETAIL,
@@ -303,11 +335,17 @@ export namespace ReceiptExtractionGateway {
 	export type ExtractParams = {
 		image: Buffer;
 		mimeType: string;
+		knownProducts: string[];
+	};
+
+	export type BuildPromptParams = {
+		knownProducts: string[];
 	};
 
 	export type RequestParams = {
 		image: Buffer;
 		mimeType: string;
+		prompt: string;
 		timeoutInMs: number;
 	};
 

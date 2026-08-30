@@ -33,7 +33,7 @@ export class AccountProductItem {
 			minPriceCents: entity.minPriceCents,
 			maxPriceCents: entity.maxPriceCents,
 			lastPurchaseAt: entity.lastPurchaseAt.toISOString(),
-			lastMerchantCnpj: entity.lastMerchantCnpj,
+			lastMerchantId: entity.lastMerchantId,
 			purchaseCount: entity.purchaseCount,
 			lastAppliedPurchaseId: entity.lastAppliedPurchaseId,
 			createdAt: entity.createdAt.toISOString(),
@@ -54,7 +54,7 @@ export class AccountProductItem {
 			minPriceCents: item.minPriceCents,
 			maxPriceCents: item.maxPriceCents,
 			lastPurchaseAt: new Date(item.lastPurchaseAt),
-			lastMerchantCnpj: item.lastMerchantCnpj,
+			lastMerchantId: item.lastMerchantId,
 			purchaseCount: item.purchaseCount,
 			lastAppliedPurchaseId: item.lastAppliedPurchaseId,
 			createdAt: new Date(item.createdAt),
@@ -105,7 +105,7 @@ export namespace AccountProductItem {
 		minPriceCents: number;
 		maxPriceCents: number;
 		lastPurchaseAt: string;
-		lastMerchantCnpj: string;
+		lastMerchantId: string;
 		purchaseCount: number;
 		lastAppliedPurchaseId: string;
 		createdAt: string;

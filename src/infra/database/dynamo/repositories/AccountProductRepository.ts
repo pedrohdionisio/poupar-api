@@ -54,7 +54,7 @@ export class AccountProductRepository {
 		normalizedName,
 		gtin,
 		unit,
-		merchantCnpj,
+		merchantId,
 		unitPriceCents,
 		purchaseId,
 		purchasedAt
@@ -81,7 +81,7 @@ export class AccountProductRepository {
 				'#lastPurchaseAt = if_not_exists(#lastPurchaseAt, :purchasedAt),',
 				'#lastUnitPriceCents = if_not_exists(#lastUnitPriceCents, :unitPriceCents),',
 				'#previousUnitPriceCents = if_not_exists(#previousUnitPriceCents, :null),',
-				'#lastMerchantCnpj = if_not_exists(#lastMerchantCnpj, :merchantCnpj),',
+				'#lastMerchantId = if_not_exists(#lastMerchantId, :merchantId),',
 				'#minPriceCents = if_not_exists(#minPriceCents, :unitPriceCents),',
 				'#maxPriceCents = if_not_exists(#maxPriceCents, :unitPriceCents),',
 				'#lastAppliedPurchaseId = :purchaseId,',
@@ -102,7 +102,7 @@ export class AccountProductRepository {
 				'#lastPurchaseAt': 'lastPurchaseAt',
 				'#lastUnitPriceCents': 'lastUnitPriceCents',
 				'#previousUnitPriceCents': 'previousUnitPriceCents',
-				'#lastMerchantCnpj': 'lastMerchantCnpj',
+				'#lastMerchantId': 'lastMerchantId',
 				'#minPriceCents': 'minPriceCents',
 				'#maxPriceCents': 'maxPriceCents',
 				'#lastAppliedPurchaseId': 'lastAppliedPurchaseId',
@@ -120,7 +120,7 @@ export class AccountProductRepository {
 				':now': now,
 				':purchasedAt': purchasedAtISO,
 				':unitPriceCents': unitPriceCents,
-				':merchantCnpj': merchantCnpj,
+				':merchantId': merchantId,
 				':purchaseId': purchaseId,
 				':null': null,
 				':one': 1
@@ -142,7 +142,7 @@ export class AccountProductRepository {
 				'SET #lastPurchaseAt = :purchasedAt,',
 				'#previousUnitPriceCents = #lastUnitPriceCents,',
 				'#lastUnitPriceCents = :unitPriceCents,',
-				'#lastMerchantCnpj = :merchantCnpj,',
+				'#lastMerchantId = :merchantId,',
 				'#name = :name,',
 				'#normalizedName = :normalizedName,',
 				'#gtin = :gtin,',
@@ -154,7 +154,7 @@ export class AccountProductRepository {
 				'#lastPurchaseAt': 'lastPurchaseAt',
 				'#previousUnitPriceCents': 'previousUnitPriceCents',
 				'#lastUnitPriceCents': 'lastUnitPriceCents',
-				'#lastMerchantCnpj': 'lastMerchantCnpj',
+				'#lastMerchantId': 'lastMerchantId',
 				'#name': 'name',
 				'#normalizedName': 'normalizedName',
 				'#gtin': 'gtin',
@@ -164,7 +164,7 @@ export class AccountProductRepository {
 			ExpressionAttributeValues: {
 				':purchasedAt': purchasedAtISO,
 				':unitPriceCents': unitPriceCents,
-				':merchantCnpj': merchantCnpj,
+				':merchantId': merchantId,
 				':name': name,
 				':normalizedName': normalizedName,
 				':gtin': gtin,
@@ -219,7 +219,7 @@ export class AccountProductRepository {
 		lastUnitPriceCents,
 		previousUnitPriceCents,
 		lastPurchaseAt,
-		lastMerchantCnpj,
+		lastMerchantId,
 		unit,
 		lastAppliedPurchaseId
 	}: AccountProductRepository.RebuildFromSeriesParams): Promise<void> {
@@ -236,7 +236,7 @@ export class AccountProductRepository {
 				'#lastUnitPriceCents = :lastUnitPriceCents,',
 				'#previousUnitPriceCents = :previousUnitPriceCents,',
 				'#lastPurchaseAt = :lastPurchaseAt,',
-				'#lastMerchantCnpj = :lastMerchantCnpj,',
+				'#lastMerchantId = :lastMerchantId,',
 				'#unit = :unit,',
 				'#lastAppliedPurchaseId = :lastAppliedPurchaseId,',
 				'#updatedAt = :now'
@@ -249,7 +249,7 @@ export class AccountProductRepository {
 				'#lastUnitPriceCents': 'lastUnitPriceCents',
 				'#previousUnitPriceCents': 'previousUnitPriceCents',
 				'#lastPurchaseAt': 'lastPurchaseAt',
-				'#lastMerchantCnpj': 'lastMerchantCnpj',
+				'#lastMerchantId': 'lastMerchantId',
 				'#unit': 'unit',
 				'#lastAppliedPurchaseId': 'lastAppliedPurchaseId',
 				'#updatedAt': 'updatedAt'
@@ -261,7 +261,7 @@ export class AccountProductRepository {
 				':lastUnitPriceCents': lastUnitPriceCents,
 				':previousUnitPriceCents': previousUnitPriceCents,
 				':lastPurchaseAt': lastPurchaseAt.toISOString(),
-				':lastMerchantCnpj': lastMerchantCnpj,
+				':lastMerchantId': lastMerchantId,
 				':unit': unit,
 				':lastAppliedPurchaseId': lastAppliedPurchaseId,
 				':now': new Date().toISOString()
@@ -307,7 +307,7 @@ export namespace AccountProductRepository {
 		normalizedName: string;
 		gtin: string | null;
 		unit: Receipt.Unit;
-		merchantCnpj: string;
+		merchantId: string;
 		unitPriceCents: number;
 		purchaseId: string;
 		purchasedAt: Date;
@@ -322,7 +322,7 @@ export namespace AccountProductRepository {
 		lastUnitPriceCents: number;
 		previousUnitPriceCents: number | null;
 		lastPurchaseAt: Date;
-		lastMerchantCnpj: string;
+		lastMerchantId: string;
 		unit: Receipt.Unit;
 		lastAppliedPurchaseId: string;
 	};

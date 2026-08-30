@@ -9,25 +9,30 @@ repositório derivam daqui. Referência completa: [artifact do single-table](htt
 
 ## Partições
 
-- Tudo que **pertence ao usuário** mora em `ACCOUNT#{accountId}`, separado por prefixo de SK
-  (`PURCHASE#`, `RECEIPT#`, `MERCHANT#`, `PRODUCT#`, `SCAN#`, `ACCESS_KEY#`).
-- Tudo que é **global** tem chave natural própria: `MERCHANT#{cnpj}`, `PRODUCT#{gtin}`.
+- **Nada é global.** Toda entidade mora em `ACCOUNT#{accountId}`, separada por prefixo de SK
+  (`PURCHASE#`, `RECEIPT#`, `MERCHANT#`, `PRODUCT#`, `SCAN#`, `ACCESS_KEY#`). O app é sobre os
+  gastos do próprio usuário; não há catálogo compartilhado entre contas.
 - Partição derivada quando o volume justifica: `ACCOUNT#{accountId}#PRODUCT#{productKey}` para série
   temporal de preço — mantém a partição principal do usuário enxuta.
 
 Nunca crie uma partição única que recebe todo write de uma entidade (`'PRODUCTS'`, `'PURCHASES'`):
 ela cresce sem limite e disputa throughput. Partição fixa só para coleção de volume baixo e conhecido.
 
-## Chave natural é exceção consciente ao ULID
+## Identidade de Merchant e de produto
 
-O CLAUDE.md manda usar ULID — isso vale para **id gerado por nós**. Identificador externo imutável
-que já vem no dado (CNPJ, GTIN, chave de acesso da NFC-e) **é a própria chave**, sem ULID:
+**Merchant é ULID**, criado pelo usuário antes da compra (`ACCOUNT#{accountId}` /
+`MERCHANT#{ulid}`). O CNPJ é atributo opcional (`cnpj: string | null`), nunca chave — o usuário
+escolhe a loja num select, não digita documento. `Merchant` acumula os contadores da conta
+(`purchaseCount`, `totalSpentCents`, `firstPurchaseAt`, `lastPurchaseAt`); não existe entidade
+`AccountMerchant` separada.
 
-- `MERCHANT#{cnpj}` — traduzir CNPJ→ULID exigiria um read no GSI a cada importação e abriria corrida
-  de duplicata quando dois usuários importam notas da mesma loja.
-- `PRODUCT#{gtin}`, `ACCESS_KEY#{chave44}` — mesmo raciocínio.
+**`productKey` é `sha1(normalizedName)`** — 40 hex, formato único, **sem prefixo**. O
+`normalizedName` vem do nome padronizado pela IA (`ImportPurchaseNormalizer.normalizeName` sobre o
+`displayName`), não da descrição crua da nota. O GTIN continua como atributo e como âncora de
+matching no `ScanExtractionNormalizer`, mas **não** é chave. Não reintroduza `GTIN#`,
+`MERCHANT#…#PROD#` nem `NAME#`: chave sem `#` é o que mantém `productKey` utilizável em query param.
 
-Não "corrija" essas chaves para ULID.
+`ACCESS_KEY#{chave44}` continua chave natural — é o dedupe de nota fiscal e vem imutável do dado.
 
 ## Data no SK
 

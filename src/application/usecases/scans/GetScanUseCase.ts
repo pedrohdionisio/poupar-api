@@ -20,6 +20,7 @@ export class GetScanUseCase {
 		return {
 			id: scan.id,
 			accountId: scan.accountId,
+			merchantId: scan.merchantId,
 			status: scan.status,
 			provider: scan.provider,
 			draft: scan.draft,

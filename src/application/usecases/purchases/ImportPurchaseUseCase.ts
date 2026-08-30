@@ -5,8 +5,8 @@ import { PurchaseDedupe } from '@application/entities/PurchaseDedupe';
 import { Receipt } from '@application/entities/Receipt';
 import { ReceiptAlreadyImported } from '@application/errors/application/ReceiptAlreadyImported';
 import { ResourceAlreadyExists } from '@application/errors/application/ResourceAlreadyExists';
+import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
 import { ImportPurchaseNormalizer } from '@application/normalizers/ImportPurchaseNormalizer';
-import { AccountMerchantRepository } from '@infra/database/dynamo/repositories/AccountMerchantRepository';
 import { AccountProductRepository } from '@infra/database/dynamo/repositories/AccountProductRepository';
 import { MerchantRepository } from '@infra/database/dynamo/repositories/MerchantRepository';
 import { PricePointRepository } from '@infra/database/dynamo/repositories/PricePointRepository';
@@ -23,7 +23,6 @@ export class ImportPurchaseUseCase {
 		private readonly merchantRepository: MerchantRepository,
 		private readonly purchaseTransactionRepository: PurchaseTransactionRepository,
 		private readonly purchaseDedupeRepository: PurchaseDedupeRepository,
-		private readonly accountMerchantRepository: AccountMerchantRepository,
 		private readonly accountProductRepository: AccountProductRepository,
 		private readonly pricePointRepository: PricePointRepository
 	) {}
@@ -32,16 +31,18 @@ export class ImportPurchaseUseCase {
 		input: ImportPurchaseUseCase.Input
 	): Promise<ImportPurchaseUseCase.Output> {
 		const { items, itemCount } = ImportPurchaseNormalizer.normalize({
-			merchantCnpj: input.merchant.cnpj,
 			items: input.items
 		});
 
-		const merchant = await this.ensureMerchant({ merchant: input.merchant });
+		const merchant = await this.loadMerchant({
+			accountId: input.accountId,
+			merchantId: input.merchantId
+		});
 
 		const purchase = new Purchase({
 			accountId: input.accountId,
 			purchasedAt: new Date(input.purchasedAt),
-			merchantCnpj: merchant.cnpj,
+			merchantId: merchant.id,
 			merchantName: merchant.name,
 			category: merchant.category,
 			totalCents: input.totalCents,
@@ -89,9 +90,7 @@ export class ImportPurchaseUseCase {
 					accountId: input.accountId,
 					purchaseId: imported.purchaseId,
 					purchasedAt: purchase.purchasedAt,
-					merchantCnpj: merchant.cnpj,
-					merchantName: merchant.name,
-					category: merchant.category,
+					merchantId: merchant.id,
 					totalCents: purchase.totalCents,
 					items
 				});
@@ -104,9 +103,7 @@ export class ImportPurchaseUseCase {
 			accountId: input.accountId,
 			purchaseId: purchase.id,
 			purchasedAt: purchase.purchasedAt,
-			merchantCnpj: purchase.merchantCnpj,
-			merchantName: purchase.merchantName,
-			category: purchase.category,
+			merchantId: purchase.merchantId,
 			totalCents: purchase.totalCents,
 			items
 		});
@@ -123,9 +120,7 @@ export class ImportPurchaseUseCase {
 		accountId,
 		purchaseId,
 		purchasedAt,
-		merchantCnpj,
-		merchantName,
-		category,
+		merchantId,
 		totalCents,
 		items
 	}: ImportPurchaseUseCase.ApplyProjectionsParams): Promise<void> {
@@ -136,7 +131,7 @@ export class ImportPurchaseUseCase {
 					productKey: item.productKey,
 					purchaseId,
 					purchasedAt,
-					merchantCnpj,
+					merchantId,
 					unitPriceCents: item.unitPriceCents,
 					quantityMilli: item.quantityMilli,
 					unit: item.unit
@@ -144,11 +139,9 @@ export class ImportPurchaseUseCase {
 		);
 
 		await Promise.all([
-			this.accountMerchantRepository.applyPurchase({
+			this.merchantRepository.applyPurchase({
 				accountId,
-				cnpj: merchantCnpj,
-				name: merchantName,
-				category,
+				merchantId,
 				purchaseId,
 				totalCents,
 				purchasedAt
@@ -161,11 +154,11 @@ export class ImportPurchaseUseCase {
 					this.accountProductRepository.applyPurchaseItem({
 						accountId,
 						productKey: item.productKey,
-						name: item.description,
+						name: item.displayName,
 						normalizedName: item.normalizedName,
 						gtin: item.gtin,
 						unit: item.unit,
-						merchantCnpj,
+						merchantId,
 						unitPriceCents: item.unitPriceCents,
 						purchaseId,
 						purchasedAt
@@ -174,51 +167,24 @@ export class ImportPurchaseUseCase {
 		]);
 	}
 
-	private async ensureMerchant({
-		merchant
-	}: ImportPurchaseUseCase.EnsureMerchantParams): Promise<Merchant> {
-		const existing = await this.merchantRepository.getByCnpj({
-			cnpj: merchant.cnpj
+	private async loadMerchant({
+		accountId,
+		merchantId
+	}: ImportPurchaseUseCase.LoadMerchantParams): Promise<Merchant> {
+		const merchant = await this.merchantRepository.getById({
+			accountId,
+			id: merchantId
 		});
 
-		if (existing) {
-			return existing;
+		if (!merchant) {
+			throw new ResourceNotFound(`Merchant "${merchantId}" not found.`);
 		}
 
-		const created = new Merchant({
-			cnpj: merchant.cnpj,
-			name: merchant.name,
-			fantasyName: merchant.fantasyName,
-			category: Merchant.Category.SUPERMARKET,
-			address: merchant.address
-		});
-
-		try {
-			await this.merchantRepository.create({ merchant: created });
-
-			return created;
-		} catch (error) {
-			if (!(error instanceof ResourceAlreadyExists)) {
-				throw error;
-			}
-
-			const winner = await this.merchantRepository.getByCnpj({
-				cnpj: merchant.cnpj
-			});
-
-			return winner ?? created;
-		}
+		return merchant;
 	}
 }
 
 export namespace ImportPurchaseUseCase {
-	export type MerchantInput = {
-		cnpj: string;
-		name: string;
-		fantasyName: string | null;
-		address: string;
-	};
-
 	export type Input = {
 		accountId: string;
 		source: Purchase.Source;
@@ -226,7 +192,7 @@ export namespace ImportPurchaseUseCase {
 		accessKey: string | null;
 		photoS3Key: string | null;
 		ocrS3Key: string | null;
-		merchant: MerchantInput;
+		merchantId: string;
 		totalCents: number;
 		discountCents: number;
 		items: ImportPurchaseNormalizer.PayloadItem[];
@@ -239,17 +205,16 @@ export namespace ImportPurchaseUseCase {
 		totalCents: number;
 	};
 
-	export type EnsureMerchantParams = {
-		merchant: MerchantInput;
+	export type LoadMerchantParams = {
+		accountId: string;
+		merchantId: string;
 	};
 
 	export type ApplyProjectionsParams = {
 		accountId: string;
 		purchaseId: string;
 		purchasedAt: Date;
-		merchantCnpj: string;
-		merchantName: string;
-		category: Merchant.Category;
+		merchantId: string;
 		totalCents: number;
 		items: Receipt.Item[];
 	};

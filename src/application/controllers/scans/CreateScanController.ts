@@ -24,8 +24,8 @@ export class CreateScanController extends Controller<
 		Controller.Response<CreateScanController.Response>
 	> {
 		const scan = await this.createScanUseCase.execute({
-			accountId,
-			contentType: body.contentType
+			...body,
+			accountId
 		});
 
 		return {

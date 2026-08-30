@@ -1,4 +1,6 @@
 import { Scan } from '@application/entities/Scan';
+import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
+import { MerchantRepository } from '@infra/database/dynamo/repositories/MerchantRepository';
 import { ScanRepository } from '@infra/database/dynamo/repositories/ScanRepository';
 import { FileStorageGateway } from '@infra/gateways/FileStorageGateway';
 import { Injectable } from '@kernel/decorators/Injectable';
@@ -11,12 +13,22 @@ const MAX_PHOTO_SIZE_IN_BYTES = 10 * 1024 * 1024;
 export class CreateScanUseCase {
 	constructor(
 		private readonly scanRepository: ScanRepository,
+		private readonly merchantRepository: MerchantRepository,
 		private readonly fileStorageGateway: FileStorageGateway
 	) {}
 
 	async execute(
 		input: CreateScanUseCase.Input
 	): Promise<CreateScanUseCase.Output> {
+		const merchant = await this.merchantRepository.getById({
+			accountId: input.accountId,
+			id: input.merchantId
+		});
+
+		if (!merchant) {
+			throw new ResourceNotFound('Merchant not found.');
+		}
+
 		const scanId = ulid();
 		const photoS3Key = FileStorageGateway.getScanKey({
 			accountId: input.accountId,
@@ -32,6 +44,7 @@ export class CreateScanUseCase {
 		const scan = new Scan({
 			id: scanId,
 			accountId: input.accountId,
+			merchantId: merchant.id,
 			status: Scan.Status.PENDING,
 			photoS3Key,
 			ocrS3Key: null,
@@ -55,6 +68,7 @@ export class CreateScanUseCase {
 export namespace CreateScanUseCase {
 	export type Input = {
 		accountId: string;
+		merchantId: string;
 		contentType: string;
 	};
 

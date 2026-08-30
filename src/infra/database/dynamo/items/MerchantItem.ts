@@ -6,10 +6,8 @@ export class MerchantItem {
 
 	constructor(private readonly attr: MerchantItem.Attributes) {
 		this.keys = {
-			PK: MerchantItem.getPK({ cnpj: this.attr.cnpj }),
-			SK: MerchantItem.getSK({ cnpj: this.attr.cnpj }),
-			GSI1PK: MerchantItem.getGSI1PK(),
-			GSI1SK: MerchantItem.getGSI1SK({ cnpj: this.attr.cnpj })
+			PK: MerchantItem.getPK({ accountId: this.attr.accountId }),
+			SK: MerchantItem.getSK({ id: this.attr.id })
 		};
 	}
 
@@ -23,11 +21,16 @@ export class MerchantItem {
 
 	static fromEntity({ entity }: MerchantItem.FromEntityParams) {
 		return new MerchantItem({
-			cnpj: entity.cnpj,
+			id: entity.id,
+			accountId: entity.accountId,
 			name: entity.name,
-			fantasyName: entity.fantasyName,
 			category: entity.category,
-			address: entity.address,
+			cnpj: entity.cnpj,
+			purchaseCount: entity.purchaseCount,
+			totalSpentCents: entity.totalSpentCents,
+			firstPurchaseAt: entity.firstPurchaseAt?.toISOString() ?? null,
+			lastPurchaseAt: entity.lastPurchaseAt?.toISOString() ?? null,
+			lastAppliedPurchaseId: entity.lastAppliedPurchaseId,
 			createdAt: entity.createdAt.toISOString(),
 			updatedAt: entity.updatedAt.toISOString()
 		});
@@ -35,32 +38,37 @@ export class MerchantItem {
 
 	static toEntity({ item }: MerchantItem.ToEntityParams) {
 		return new Merchant({
-			cnpj: item.cnpj,
+			id: item.id,
+			accountId: item.accountId,
 			name: item.name,
-			fantasyName: item.fantasyName,
 			category: item.category,
-			address: item.address,
+			cnpj: item.cnpj,
+			purchaseCount: item.purchaseCount,
+			totalSpentCents: item.totalSpentCents,
+			firstPurchaseAt: item.firstPurchaseAt
+				? new Date(item.firstPurchaseAt)
+				: null,
+			lastPurchaseAt: item.lastPurchaseAt
+				? new Date(item.lastPurchaseAt)
+				: null,
+			lastAppliedPurchaseId: item.lastAppliedPurchaseId,
 			createdAt: new Date(item.createdAt),
 			updatedAt: new Date(item.updatedAt)
 		});
 	}
 
-	static getPK({ cnpj }: MerchantItem.GetPKParams): MerchantItem['keys']['PK'] {
-		return `MERCHANT#${cnpj}`;
+	static getPK({
+		accountId
+	}: MerchantItem.GetPKParams): MerchantItem['keys']['PK'] {
+		return `ACCOUNT#${accountId}`;
 	}
 
-	static getSK({ cnpj }: MerchantItem.GetSKParams): MerchantItem['keys']['SK'] {
-		return `MERCHANT#${cnpj}`;
+	static getSK({ id }: MerchantItem.GetSKParams): MerchantItem['keys']['SK'] {
+		return `MERCHANT#${id}`;
 	}
 
-	static getGSI1PK(): MerchantItem['keys']['GSI1PK'] {
-		return 'MERCHANTS';
-	}
-
-	static getGSI1SK({
-		cnpj
-	}: MerchantItem.GetGSI1SKParams): MerchantItem['keys']['GSI1SK'] {
-		return `MERCHANT#${cnpj}`;
+	static getSKPrefix(): 'MERCHANT#' {
+		return 'MERCHANT#';
 	}
 }
 
@@ -74,18 +82,21 @@ export namespace MerchantItem {
 	};
 
 	export type Keys = {
-		PK: `MERCHANT#${string}`;
+		PK: `ACCOUNT#${string}`;
 		SK: `MERCHANT#${string}`;
-		GSI1PK: 'MERCHANTS';
-		GSI1SK: `MERCHANT#${string}`;
 	};
 
 	export type Attributes = {
-		cnpj: string;
+		id: string;
+		accountId: string;
 		name: string;
-		fantasyName: string | null;
 		category: Merchant.Category;
-		address: string;
+		cnpj: string | null;
+		purchaseCount: number;
+		totalSpentCents: number;
+		firstPurchaseAt: string | null;
+		lastPurchaseAt: string | null;
+		lastAppliedPurchaseId: string | null;
 		createdAt: string;
 		updatedAt: string;
 	};
@@ -96,14 +107,10 @@ export namespace MerchantItem {
 		};
 
 	export type GetPKParams = {
-		cnpj: string;
+		accountId: string;
 	};
 
 	export type GetSKParams = {
-		cnpj: string;
-	};
-
-	export type GetGSI1SKParams = {
-		cnpj: string;
+		id: string;
 	};
 }

@@ -12,10 +12,12 @@ export class ListMerchantsController extends Controller<
 		super();
 	}
 
-	protected override async handle(): Promise<
+	protected override async handle({
+		accountId
+	}: Controller.Request<'private'>): Promise<
 		Controller.Response<ListMerchantsController.Response>
 	> {
-		const merchants = await this.listMerchantsUseCase.execute();
+		const merchants = await this.listMerchantsUseCase.execute({ accountId });
 
 		return {
 			statusCode: 200,

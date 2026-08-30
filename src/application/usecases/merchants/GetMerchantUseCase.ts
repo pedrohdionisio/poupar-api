@@ -10,8 +10,9 @@ export class GetMerchantUseCase {
 	async execute(
 		input: GetMerchantUseCase.Input
 	): Promise<GetMerchantUseCase.Output> {
-		const merchant = await this.merchantRepository.getByCnpj({
-			cnpj: input.cnpj
+		const merchant = await this.merchantRepository.getById({
+			accountId: input.accountId,
+			id: input.id
 		});
 
 		if (!merchant) {
@@ -24,7 +25,8 @@ export class GetMerchantUseCase {
 
 export namespace GetMerchantUseCase {
 	export type Input = {
-		cnpj: string;
+		accountId: string;
+		id: string;
 	};
 
 	export type Output = Merchant;

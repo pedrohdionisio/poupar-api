@@ -7,7 +7,7 @@ export class Purchase {
 	readonly purchasedAt: Date;
 	readonly createdAt: Date;
 
-	merchantCnpj: string;
+	merchantId: string;
 	merchantName: string;
 	category: Merchant.Category;
 	totalCents: number;
@@ -21,7 +21,7 @@ export class Purchase {
 		this.id = attr.id ?? ulid();
 		this.accountId = attr.accountId;
 		this.purchasedAt = attr.purchasedAt;
-		this.merchantCnpj = attr.merchantCnpj;
+		this.merchantId = attr.merchantId;
 		this.merchantName = attr.merchantName;
 		this.category = attr.category;
 		this.totalCents = attr.totalCents;
@@ -44,7 +44,7 @@ export namespace Purchase {
 		id?: string;
 		accountId: string;
 		purchasedAt: Date;
-		merchantCnpj: string;
+		merchantId: string;
 		merchantName: string;
 		category: Merchant.Category;
 		totalCents: number;

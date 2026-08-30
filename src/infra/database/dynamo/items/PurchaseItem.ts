@@ -28,7 +28,7 @@ export class PurchaseItem {
 			id: entity.id,
 			accountId: entity.accountId,
 			purchasedAt: entity.purchasedAt.toISOString(),
-			merchantCnpj: entity.merchantCnpj,
+			merchantId: entity.merchantId,
 			merchantName: entity.merchantName,
 			category: entity.category,
 			totalCents: entity.totalCents,
@@ -46,7 +46,7 @@ export class PurchaseItem {
 			id: item.id,
 			accountId: item.accountId,
 			purchasedAt: new Date(item.purchasedAt),
-			merchantCnpj: item.merchantCnpj,
+			merchantId: item.merchantId,
 			merchantName: item.merchantName,
 			category: item.category,
 			totalCents: item.totalCents,
@@ -105,7 +105,7 @@ export namespace PurchaseItem {
 		id: string;
 		accountId: string;
 		purchasedAt: string;
-		merchantCnpj: string;
+		merchantId: string;
 		merchantName: string;
 		category: Merchant.Category;
 		totalCents: number;

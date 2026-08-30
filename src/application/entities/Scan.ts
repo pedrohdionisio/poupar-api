@@ -4,6 +4,7 @@ import { ulid } from 'ulid';
 export class Scan {
 	readonly id: string;
 	readonly accountId: string;
+	readonly merchantId: string;
 	readonly createdAt: Date;
 
 	status: Scan.Status;
@@ -20,6 +21,7 @@ export class Scan {
 	constructor(attr: Scan.Attributes) {
 		this.id = attr.id ?? ulid();
 		this.accountId = attr.accountId;
+		this.merchantId = attr.merchantId;
 		this.status = attr.status;
 		this.photoS3Key = attr.photoS3Key;
 		this.ocrS3Key = attr.ocrS3Key;
@@ -59,6 +61,7 @@ export namespace Scan {
 	export type DraftItem = {
 		seq: number;
 		description: string;
+		displayName: string;
 		merchantCode: string | null;
 		gtin: string | null;
 		quantityMilli: number;
@@ -71,12 +74,6 @@ export namespace Scan {
 	export type Draft = {
 		purchasedAt: string;
 		accessKey: string | null;
-		merchant: {
-			cnpj: string;
-			name: string;
-			fantasyName: string | null;
-			address: string;
-		};
 		totalCents: number;
 		discountCents: number;
 		items: Scan.DraftItem[];
@@ -85,6 +82,7 @@ export namespace Scan {
 	export type Attributes = {
 		id?: string;
 		accountId: string;
+		merchantId: string;
 		status: Scan.Status;
 		photoS3Key: string;
 		ocrS3Key: string | null;

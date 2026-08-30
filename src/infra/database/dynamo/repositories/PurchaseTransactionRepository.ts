@@ -11,7 +11,7 @@ import {
 import { dynamoClient } from '@infra/clients/dynamoClient';
 import { Injectable } from '@kernel/decorators/Injectable';
 import { AppConfig } from '@shared/config/AppConfig';
-import { AccountMerchantItem } from '../items/AccountMerchantItem';
+import { MerchantItem } from '../items/MerchantItem';
 import { PurchaseDedupeItem } from '../items/PurchaseDedupeItem';
 import { PurchaseItem } from '../items/PurchaseItem';
 import { ReceiptItem } from '../items/ReceiptItem';
@@ -76,7 +76,7 @@ export class PurchaseTransactionRepository {
 
 	async deleteCascade({
 		purchase,
-		revertAccountMerchant
+		revertMerchant
 	}: PurchaseTransactionRepository.DeleteCascadeParams): Promise<void> {
 		const TableName = this.appConfig.database.dynamodb.mainTable;
 		const purchasedAt = purchase.purchasedAt.toISOString();
@@ -121,13 +121,13 @@ export class PurchaseTransactionRepository {
 			});
 		}
 
-		if (revertAccountMerchant) {
+		if (revertMerchant) {
 			transactItems.push({
 				Update: {
 					TableName,
 					Key: {
-						PK: AccountMerchantItem.getPK({ accountId: purchase.accountId }),
-						SK: AccountMerchantItem.getSK({ cnpj: purchase.merchantCnpj })
+						PK: MerchantItem.getPK({ accountId: purchase.accountId }),
+						SK: MerchantItem.getSK({ id: purchase.merchantId })
 					},
 					UpdateExpression:
 						'SET #updatedAt = :now ADD #purchaseCount :minusOne, #totalSpentCents :minusTotal',
@@ -172,6 +172,6 @@ export namespace PurchaseTransactionRepository {
 
 	export type DeleteCascadeParams = {
 		purchase: Purchase;
-		revertAccountMerchant: boolean;
+		revertMerchant: boolean;
 	};
 }

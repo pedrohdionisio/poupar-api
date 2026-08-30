@@ -10,8 +10,9 @@ export class UpdateMerchantUseCase {
 	async execute(
 		input: UpdateMerchantUseCase.Input
 	): Promise<UpdateMerchantUseCase.Output> {
-		const merchant = await this.merchantRepository.getByCnpj({
-			cnpj: input.cnpj
+		const merchant = await this.merchantRepository.getById({
+			accountId: input.accountId,
+			id: input.id
 		});
 
 		if (!merchant) {
@@ -19,9 +20,8 @@ export class UpdateMerchantUseCase {
 		}
 
 		merchant.name = input.name;
-		merchant.fantasyName = input.fantasyName;
 		merchant.category = input.category;
-		merchant.address = input.address;
+		merchant.cnpj = input.cnpj;
 		merchant.updatedAt = new Date();
 
 		await this.merchantRepository.update({ merchant });
@@ -30,11 +30,11 @@ export class UpdateMerchantUseCase {
 
 export namespace UpdateMerchantUseCase {
 	export type Input = {
-		cnpj: string;
+		accountId: string;
+		id: string;
 		name: string;
-		fantasyName: string | null;
 		category: Merchant.Category;
-		address: string;
+		cnpj: string | null;
 	};
 
 	export type Output = void;

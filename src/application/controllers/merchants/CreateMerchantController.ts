@@ -18,21 +18,25 @@ export class CreateMerchantController extends Controller<
 	}
 
 	protected override async handle({
+		accountId,
 		body
 	}: Controller.Request<'private', CreateMerchantBody>): Promise<
 		Controller.Response<CreateMerchantController.Response>
 	> {
-		const { cnpj } = await this.createMerchantUseCase.execute(body);
+		const { id } = await this.createMerchantUseCase.execute({
+			...body,
+			accountId
+		});
 
 		return {
 			statusCode: 201,
-			body: { cnpj }
+			body: { id }
 		};
 	}
 }
 
 export namespace CreateMerchantController {
 	export type Response = {
-		cnpj: string;
+		id: string;
 	};
 }

@@ -23,6 +23,7 @@ export class ScanItem {
 		return new ScanItem({
 			id: entity.id,
 			accountId: entity.accountId,
+			merchantId: entity.merchantId,
 			status: entity.status,
 			photoS3Key: entity.photoS3Key,
 			ocrS3Key: entity.ocrS3Key,
@@ -41,6 +42,7 @@ export class ScanItem {
 		return new Scan({
 			id: item.id,
 			accountId: item.accountId,
+			merchantId: item.merchantId,
 			status: item.status,
 			photoS3Key: item.photoS3Key,
 			ocrS3Key: item.ocrS3Key,
@@ -85,6 +87,7 @@ export namespace ScanItem {
 	export type Attributes = {
 		id: string;
 		accountId: string;
+		merchantId: string;
 		status: Scan.Status;
 		photoS3Key: string;
 		ocrS3Key: string | null;

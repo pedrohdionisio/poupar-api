@@ -1,32 +1,21 @@
 import { createHash } from 'node:crypto';
-import { Merchant } from '@application/entities/Merchant';
 import { Receipt } from '@application/entities/Receipt';
-import { InvalidCnpj } from '@application/errors/application/InvalidCnpj';
 
 export class ImportPurchaseNormalizer {
 	static readonly gtinPattern = /^(\d{8}|\d{12,14})$/;
 
 	static normalize({
-		merchantCnpj,
 		items
 	}: ImportPurchaseNormalizer.Input): ImportPurchaseNormalizer.Output {
-		if (!Merchant.isValidCnpj({ cnpj: merchantCnpj })) {
-			throw new InvalidCnpj(merchantCnpj);
-		}
-
 		const consolidated = new Map<string, Receipt.Item>();
 
 		for (const item of items) {
-			const gtin = ImportPurchaseNormalizer.resolveGtin({ gtin: item.gtin });
+			const displayName = item.displayName?.trim() || item.description;
 			const normalizedName = ImportPurchaseNormalizer.normalizeName({
-				description: item.description
+				description: displayName
 			});
-			const merchantCode = item.merchantCode?.trim() || null;
 			const productKey = ImportPurchaseNormalizer.resolveProductKey({
-				merchantCnpj,
-				merchantCode,
-				normalizedName,
-				gtin
+				normalizedName
 			});
 
 			const previous = consolidated.get(productKey);
@@ -36,9 +25,10 @@ export class ImportPurchaseNormalizer {
 					seq: item.seq,
 					productKey,
 					description: item.description,
+					displayName,
 					normalizedName,
-					gtin,
-					merchantCode,
+					gtin: ImportPurchaseNormalizer.resolveGtin({ gtin: item.gtin }),
+					merchantCode: item.merchantCode?.trim() || null,
 					quantityMilli: item.quantityMilli,
 					unit: item.unit,
 					unitPriceCents: item.unitPriceCents,
@@ -81,22 +71,9 @@ export class ImportPurchaseNormalizer {
 	}
 
 	static resolveProductKey({
-		merchantCnpj,
-		merchantCode,
-		normalizedName,
-		gtin
+		normalizedName
 	}: ImportPurchaseNormalizer.ResolveProductKeyParams): string {
-		if (gtin) {
-			return `GTIN#${gtin}`;
-		}
-
-		if (merchantCode) {
-			return `MERCHANT#${merchantCnpj}#PROD#${merchantCode}`;
-		}
-
-		const hash = createHash('sha1').update(normalizedName).digest('hex');
-
-		return `NAME#${hash}`;
+		return createHash('sha1').update(normalizedName).digest('hex');
 	}
 
 	static resolveGtin({
@@ -142,6 +119,7 @@ export namespace ImportPurchaseNormalizer {
 	export type PayloadItem = {
 		seq: number;
 		description: string;
+		displayName?: string | null;
 		merchantCode: string | null;
 		gtin: string | null;
 		quantityMilli: number;
@@ -152,7 +130,6 @@ export namespace ImportPurchaseNormalizer {
 	};
 
 	export type Input = {
-		merchantCnpj: string;
 		items: PayloadItem[];
 	};
 
@@ -163,12 +140,7 @@ export namespace ImportPurchaseNormalizer {
 
 	export type NormalizeNameParams = { description: string };
 
-	export type ResolveProductKeyParams = {
-		merchantCnpj: string;
-		merchantCode: string | null;
-		normalizedName: string;
-		gtin: string | null;
-	};
+	export type ResolveProductKeyParams = { normalizedName: string };
 
 	export type ResolveGtinParams = { gtin: string | null };
 

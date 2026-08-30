@@ -1,6 +1,6 @@
 import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
-import { AccountMerchantRepository } from '@infra/database/dynamo/repositories/AccountMerchantRepository';
 import { AccountProductRepository } from '@infra/database/dynamo/repositories/AccountProductRepository';
+import { MerchantRepository } from '@infra/database/dynamo/repositories/MerchantRepository';
 import { PricePointRepository } from '@infra/database/dynamo/repositories/PricePointRepository';
 import { PurchaseRepository } from '@infra/database/dynamo/repositories/PurchaseRepository';
 import { PurchaseTransactionRepository } from '@infra/database/dynamo/repositories/PurchaseTransactionRepository';
@@ -17,7 +17,7 @@ export class DeletePurchaseUseCase {
 		private readonly receiptRepository: ReceiptRepository,
 		private readonly pricePointRepository: PricePointRepository,
 		private readonly accountProductRepository: AccountProductRepository,
-		private readonly accountMerchantRepository: AccountMerchantRepository,
+		private readonly merchantRepository: MerchantRepository,
 		private readonly purchaseTransactionRepository: PurchaseTransactionRepository
 	) {}
 
@@ -59,22 +59,15 @@ export class DeletePurchaseUseCase {
 				this.rebuildAccountProduct({ accountId: input.accountId, productKey })
 		});
 
-		const accountMerchant = await this.accountMerchantRepository.getByCnpj({
+		const merchant = await this.merchantRepository.getById({
 			accountId: input.accountId,
-			cnpj: purchase.merchantCnpj
+			id: purchase.merchantId
 		});
 
 		await this.purchaseTransactionRepository.deleteCascade({
 			purchase,
-			revertAccountMerchant: Boolean(accountMerchant)
+			revertMerchant: Boolean(merchant)
 		});
-
-		if (accountMerchant && accountMerchant.purchaseCount <= 1) {
-			await this.accountMerchantRepository.deleteIfEmpty({
-				accountId: input.accountId,
-				cnpj: purchase.merchantCnpj
-			});
-		}
 	}
 
 	private async rebuildAccountProduct({
@@ -105,7 +98,7 @@ export class DeletePurchaseUseCase {
 			lastUnitPriceCents: last.unitPriceCents,
 			previousUnitPriceCents: previous?.unitPriceCents ?? null,
 			lastPurchaseAt: last.purchasedAt,
-			lastMerchantCnpj: last.merchantCnpj,
+			lastMerchantId: last.merchantId,
 			unit: last.unit,
 			lastAppliedPurchaseId: last.purchaseId
 		});

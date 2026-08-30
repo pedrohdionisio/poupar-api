@@ -6,13 +6,19 @@ import { Injectable } from '@kernel/decorators/Injectable';
 export class ListMerchantsUseCase {
 	constructor(private readonly merchantRepository: MerchantRepository) {}
 
-	async execute(): Promise<ListMerchantsUseCase.Output> {
-		const merchants = await this.merchantRepository.list();
-
-		return merchants;
+	async execute(
+		input: ListMerchantsUseCase.Input
+	): Promise<ListMerchantsUseCase.Output> {
+		return this.merchantRepository.listByAccount({
+			accountId: input.accountId
+		});
 	}
 }
 
 export namespace ListMerchantsUseCase {
+	export type Input = {
+		accountId: string;
+	};
+
 	export type Output = Merchant[];
 }

@@ -18,6 +18,7 @@ export class DeleteMerchantController extends Controller<
 	}
 
 	protected override async handle({
+		accountId,
 		params
 	}: Controller.Request<
 		'private',
@@ -25,7 +26,8 @@ export class DeleteMerchantController extends Controller<
 		DeleteMerchantParams
 	>): Promise<Controller.Response<DeleteMerchantController.Response>> {
 		await this.deleteMerchantUseCase.execute({
-			cnpj: params.cnpj
+			accountId,
+			id: params.merchantId
 		});
 
 		return {
