@@ -13,8 +13,8 @@ export const schema = z.object({
 	UPLOADS_BUCKET_NAME: z.string().min(1),
 
 	// AI
-	GEMINI_API_KEY: z.string().min(1),
-	GEMINI_MODEL: z.string().min(1)
+	OPENAI_API_KEY: z.string().min(1),
+	OPENAI_MODEL: z.string().min(1)
 });
 
 export const env = schema.parse(process.env);

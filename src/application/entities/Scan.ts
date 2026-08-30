@@ -44,6 +44,7 @@ export namespace Scan {
 	}
 
 	export enum Provider {
+		OPENAI = 'OPENAI',
 		GEMINI = 'GEMINI',
 		MANUAL = 'MANUAL'
 	}

@@ -25,6 +25,7 @@ os itens, devolva readable = false.`;
 
 const RESPONSE_SCHEMA = {
 	type: 'object',
+	additionalProperties: false,
 	properties: {
 		readable: {
 			type: 'boolean',
@@ -32,6 +33,7 @@ const RESPONSE_SCHEMA = {
 		},
 		merchant: {
 			type: 'object',
+			additionalProperties: false,
 			properties: {
 				cnpj: { type: 'string' },
 				name: { type: 'string' },
@@ -48,6 +50,7 @@ const RESPONSE_SCHEMA = {
 			type: 'array',
 			items: {
 				type: 'object',
+				additionalProperties: false,
 				properties: {
 					seq: { type: 'integer' },
 					description: { type: 'string' },
@@ -113,8 +116,13 @@ const extractionSchema = z.object({
 
 @Injectable()
 export class ReceiptExtractionGateway {
-	private static readonly ENDPOINT =
-		'https://generativelanguage.googleapis.com/v1beta/interactions';
+	private static readonly ENDPOINT = 'https://api.openai.com/v1/responses';
+
+	private static readonly SCHEMA_NAME = 'receipt_extraction';
+
+	private static readonly REASONING_EFFORT = 'low';
+
+	private static readonly IMAGE_DETAIL = 'high';
 
 	private static readonly BUDGET_IN_MS = 150_000;
 
@@ -185,7 +193,7 @@ export class ReceiptExtractionGateway {
 
 		if (!response.ok) {
 			throw new ReceiptExtractionFailed(
-				`Gemini responded ${response.status}: ${await response.text()}`,
+				`OpenAI responded ${response.status}: ${await response.text()}`,
 				response.status === 429 || response.status >= 500
 			);
 		}
@@ -205,29 +213,38 @@ export class ReceiptExtractionGateway {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'x-goog-api-key': this.appConfig.ai.gemini.apiKey
+					Authorization: `Bearer ${this.appConfig.ai.openai.apiKey}`
 				},
 				body: JSON.stringify({
-					model: this.appConfig.ai.gemini.model,
+					model: this.appConfig.ai.openai.model,
+					reasoning: { effort: ReceiptExtractionGateway.REASONING_EFFORT },
 					input: [
-						{ type: 'text', text: PROMPT },
 						{
-							type: 'image',
-							mime_type: mimeType,
-							data: image.toString('base64')
+							role: 'user',
+							content: [
+								{ type: 'input_text', text: PROMPT },
+								{
+									type: 'input_image',
+									detail: ReceiptExtractionGateway.IMAGE_DETAIL,
+									image_url: `data:${mimeType};base64,${image.toString('base64')}`
+								}
+							]
 						}
 					],
-					response_format: {
-						type: 'text',
-						mime_type: 'application/json',
-						schema: RESPONSE_SCHEMA
+					text: {
+						format: {
+							type: 'json_schema',
+							name: ReceiptExtractionGateway.SCHEMA_NAME,
+							strict: true,
+							schema: RESPONSE_SCHEMA
+						}
 					}
 				}),
 				signal: AbortSignal.timeout(Math.max(timeoutInMs, 1))
 			});
 		} catch (error) {
 			throw new ReceiptExtractionFailed(
-				`Gemini request failed: ${(error as Error).message}`
+				`OpenAI request failed: ${(error as Error).message}`
 			);
 		}
 	}
@@ -235,15 +252,25 @@ export class ReceiptExtractionGateway {
 	private static getOutputText({
 		payload
 	}: ReceiptExtractionGateway.GetOutputTextParams): string {
-		const steps = (payload as ReceiptExtractionGateway.InteractionResponse)
-			.steps;
-		const output = steps
-			?.filter((step) => step.type === 'model_output')
-			.flatMap((step) => step.content ?? [])
-			.find((content) => content.type === 'text')?.text;
+		const content = (
+			payload as ReceiptExtractionGateway.ResponsesPayload
+		).output
+			?.filter((item) => item.type === 'message')
+			.flatMap((item) => item.content ?? []);
+
+		const refusal = content?.find((part) => part.type === 'refusal')?.refusal;
+
+		if (refusal) {
+			throw new ReceiptExtractionFailed(
+				`OpenAI refused the extraction: ${refusal}`,
+				false
+			);
+		}
+
+		const output = content?.find((part) => part.type === 'output_text')?.text;
 
 		if (!output) {
-			throw new ReceiptExtractionFailed('Gemini response has no model output.');
+			throw new ReceiptExtractionFailed('OpenAI response has no model output.');
 		}
 
 		return output;
@@ -297,10 +324,10 @@ export namespace ReceiptExtractionGateway {
 		rawJson: string;
 	};
 
-	export type InteractionResponse = {
-		steps?: {
+	export type ResponsesPayload = {
+		output?: {
 			type: string;
-			content?: { type: string; text?: string }[];
+			content?: { type: string; text?: string; refusal?: string }[];
 		}[];
 	};
 }

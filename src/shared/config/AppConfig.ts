@@ -34,9 +34,9 @@ export class AppConfig {
 		};
 
 		this.ai = {
-			gemini: {
-				apiKey: env.GEMINI_API_KEY,
-				model: env.GEMINI_MODEL
+			openai: {
+				apiKey: env.OPENAI_API_KEY,
+				model: env.OPENAI_MODEL
 			}
 		};
 	}
@@ -68,7 +68,7 @@ export namespace AppConfig {
 	};
 
 	export type Ai = {
-		gemini: {
+		openai: {
 			apiKey: string;
 			model: string;
 		};

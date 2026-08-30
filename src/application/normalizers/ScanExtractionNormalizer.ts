@@ -10,6 +10,8 @@ const CENTS_SCALE = 2;
 const MILLI_SCALE = 3;
 const ACCESS_KEY_LENGTH = 44;
 const BRAZIL_OFFSET_IN_MINUTES = 180;
+const CENTURY = 2000;
+const SHORT_YEAR_LIMIT = 100;
 
 export class ScanExtractionNormalizer {
 	static toDraft({
@@ -135,7 +137,7 @@ export class ScanExtractionNormalizer {
 		value
 	}: ScanExtractionNormalizer.ToIsoDateParams): string {
 		const brazilian = value.match(
-			/(\d{2})\/(\d{2})\/(\d{4})(?:\D+(\d{2}):(\d{2})(?::(\d{2}))?)?/
+			/(\d{2})\/(\d{2})\/(\d{4}|\d{2})(?:\D+(\d{2}):(\d{2})(?::(\d{2}))?)?/
 		);
 		const iso = value.match(
 			/(\d{4})-(\d{2})-(\d{2})(?:\D+(\d{2}):(\d{2})(?::(\d{2}))?)?/
@@ -156,7 +158,7 @@ export class ScanExtractionNormalizer {
 		);
 
 		const timestamp = Date.UTC(
-			year!,
+			ScanExtractionNormalizer.toFullYear({ year: year! }),
 			month! - 1,
 			day!,
 			hours!,
@@ -171,6 +173,12 @@ export class ScanExtractionNormalizer {
 		return new Date(
 			timestamp + BRAZIL_OFFSET_IN_MINUTES * 60 * 1000
 		).toISOString();
+	}
+
+	private static toFullYear({
+		year
+	}: ScanExtractionNormalizer.ToFullYearParams): number {
+		return year < SHORT_YEAR_LIMIT ? CENTURY + year : year;
 	}
 }
 
@@ -192,5 +200,9 @@ export namespace ScanExtractionNormalizer {
 
 	export type ToIsoDateParams = {
 		value: string;
+	};
+
+	export type ToFullYearParams = {
+		year: number;
 	};
 }

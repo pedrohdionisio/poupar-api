@@ -35,7 +35,7 @@ export class CreateScanUseCase {
 			status: Scan.Status.PENDING,
 			photoS3Key,
 			ocrS3Key: null,
-			provider: Scan.Provider.GEMINI,
+			provider: Scan.Provider.OPENAI,
 			draft: null,
 			purchaseId: null,
 			errorCode: null,
