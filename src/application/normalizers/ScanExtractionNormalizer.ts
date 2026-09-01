@@ -14,7 +14,8 @@ const SHORT_YEAR_LIMIT = 100;
 export class ScanExtractionNormalizer {
 	static toDraft({
 		extraction,
-		namesByGtin
+		namesByGtin,
+		categoriesByName
 	}: ScanExtractionNormalizer.ToDraftParams): Scan.Draft {
 		const accessKey = extraction.accessKey.replace(/\D/g, '');
 
@@ -37,16 +38,18 @@ export class ScanExtractionNormalizer {
 				const gtin = ImportPurchaseNormalizer.resolveGtin({
 					gtin: item.gtin.replace(/\D/g, '') || null
 				});
+				const displayName = ScanExtractionNormalizer.resolveDisplayName({
+					normalizedName: item.normalizedName,
+					description,
+					gtin,
+					namesByGtin
+				});
 
 				return {
 					seq: item.seq || index + 1,
 					description,
-					displayName: ScanExtractionNormalizer.resolveDisplayName({
-						normalizedName: item.normalizedName,
-						description,
-						gtin,
-						namesByGtin
-					}),
+					displayName,
+					category: categoriesByName.get(displayName) ?? item.category,
 					merchantCode: item.merchantCode.trim() || null,
 					gtin,
 					quantityMilli: ScanExtractionNormalizer.toInt({
@@ -195,6 +198,7 @@ export namespace ScanExtractionNormalizer {
 	export type ToDraftParams = {
 		extraction: ReceiptExtractionGateway.Extraction;
 		namesByGtin: Map<string, string>;
+		categoriesByName: Map<string, Receipt.ProductCategory>;
 	};
 
 	export type ResolveDisplayNameParams = {

@@ -2,6 +2,7 @@ import { AccountProduct } from '@application/entities/AccountProduct';
 import { Receipt } from '@application/entities/Receipt';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import {
+	BatchGetCommand,
 	DeleteCommand,
 	QueryCommand,
 	UpdateCommand
@@ -10,6 +11,8 @@ import { dynamoClient } from '@infra/clients/dynamoClient';
 import { Injectable } from '@kernel/decorators/Injectable';
 import { AppConfig } from '@shared/config/AppConfig';
 import { AccountProductItem } from '../items/AccountProductItem';
+
+const BATCH_GET_SIZE = 100;
 
 @Injectable()
 export class AccountProductRepository {
@@ -47,11 +50,93 @@ export class AccountProductRepository {
 		);
 	}
 
+	async getByProductKeys({
+		accountId,
+		productKeys
+	}: AccountProductRepository.GetByProductKeysParams): Promise<
+		AccountProduct[]
+	> {
+		if (productKeys.length === 0) {
+			return [];
+		}
+
+		const TableName = this.appConfig.database.dynamodb.mainTable;
+		const accountProducts: AccountProductItem.ItemType[] = [];
+
+		for (let index = 0; index < productKeys.length; index += BATCH_GET_SIZE) {
+			let keys = productKeys
+				.slice(index, index + BATCH_GET_SIZE)
+				.map((productKey) => ({
+					PK: AccountProductItem.getPK({ accountId }),
+					SK: AccountProductItem.getSK({ productKey })
+				}));
+
+			while (keys.length > 0) {
+				const command = new BatchGetCommand({
+					RequestItems: { [TableName]: { Keys: keys } }
+				});
+
+				const { Responses, UnprocessedKeys } = await dynamoClient.send(command);
+
+				accountProducts.push(
+					...((Responses?.[TableName] ?? []) as AccountProductItem.ItemType[])
+				);
+
+				keys = (UnprocessedKeys?.[TableName]?.Keys ?? []) as typeof keys;
+			}
+		}
+
+		return accountProducts.map((accountProduct) =>
+			AccountProductItem.toEntity({ item: accountProduct })
+		);
+	}
+
+	async updateCategory({
+		accountId,
+		productKey,
+		category,
+		categorySource
+	}: AccountProductRepository.UpdateCategoryParams): Promise<boolean> {
+		const command = new UpdateCommand({
+			TableName: this.appConfig.database.dynamodb.mainTable,
+			Key: {
+				PK: AccountProductItem.getPK({ accountId }),
+				SK: AccountProductItem.getSK({ productKey })
+			},
+			UpdateExpression:
+				'SET #category = :category, #categorySource = :categorySource, #updatedAt = :now',
+			ConditionExpression: 'attribute_exists(SK)',
+			ExpressionAttributeNames: {
+				'#category': 'category',
+				'#categorySource': 'categorySource',
+				'#updatedAt': 'updatedAt'
+			},
+			ExpressionAttributeValues: {
+				':category': category,
+				':categorySource': categorySource,
+				':now': new Date().toISOString()
+			}
+		});
+
+		try {
+			await dynamoClient.send(command);
+
+			return true;
+		} catch (error) {
+			if (error instanceof ConditionalCheckFailedException) {
+				return false;
+			}
+
+			throw error;
+		}
+	}
+
 	async applyPurchaseItem({
 		accountId,
 		productKey,
 		name,
 		normalizedName,
+		category,
 		gtin,
 		unit,
 		merchantId,
@@ -77,6 +162,8 @@ export class AccountProductRepository {
 				'#gtin = if_not_exists(#gtin, :gtin),',
 				'#unit = if_not_exists(#unit, :unit),',
 				'#name = if_not_exists(#name, :name),',
+				'#category = if_not_exists(#category, :category),',
+				'#categorySource = if_not_exists(#categorySource, :categorySource),',
 				'#createdAt = if_not_exists(#createdAt, :now),',
 				'#lastPurchaseAt = if_not_exists(#lastPurchaseAt, :purchasedAt),',
 				'#lastUnitPriceCents = if_not_exists(#lastUnitPriceCents, :unitPriceCents),',
@@ -96,6 +183,8 @@ export class AccountProductRepository {
 				'#productKey': 'productKey',
 				'#name': 'name',
 				'#normalizedName': 'normalizedName',
+				'#category': 'category',
+				'#categorySource': 'categorySource',
 				'#gtin': 'gtin',
 				'#unit': 'unit',
 				'#createdAt': 'createdAt',
@@ -115,6 +204,8 @@ export class AccountProductRepository {
 				':productKey': productKey,
 				':name': name,
 				':normalizedName': normalizedName,
+				':category': category,
+				':categorySource': AccountProduct.CategorySource.AI,
 				':gtin': gtin,
 				':unit': unit,
 				':now': now,
@@ -300,11 +391,24 @@ export namespace AccountProductRepository {
 		accountId: string;
 	};
 
+	export type GetByProductKeysParams = {
+		accountId: string;
+		productKeys: string[];
+	};
+
+	export type UpdateCategoryParams = {
+		accountId: string;
+		productKey: string;
+		category: Receipt.ProductCategory;
+		categorySource: AccountProduct.CategorySource;
+	};
+
 	export type ApplyPurchaseItemParams = {
 		accountId: string;
 		productKey: string;
 		name: string;
 		normalizedName: string;
+		category: Receipt.ProductCategory;
 		gtin: string | null;
 		unit: Receipt.Unit;
 		merchantId: string;

@@ -26,6 +26,8 @@ export class AccountProductItem {
 			productKey: entity.productKey,
 			name: entity.name,
 			normalizedName: entity.normalizedName,
+			category: entity.category,
+			categorySource: entity.categorySource,
 			gtin: entity.gtin,
 			unit: entity.unit,
 			lastUnitPriceCents: entity.lastUnitPriceCents,
@@ -47,6 +49,8 @@ export class AccountProductItem {
 			productKey: item.productKey,
 			name: item.name,
 			normalizedName: item.normalizedName,
+			category: item.category,
+			categorySource: item.categorySource,
 			gtin: item.gtin,
 			unit: item.unit,
 			lastUnitPriceCents: item.lastUnitPriceCents,
@@ -98,6 +102,8 @@ export namespace AccountProductItem {
 		productKey: string;
 		name: string;
 		normalizedName: string;
+		category: Receipt.ProductCategory;
+		categorySource: AccountProduct.CategorySource;
 		gtin: string | null;
 		unit: Receipt.Unit;
 		lastUnitPriceCents: number;

@@ -1,3 +1,4 @@
+import { Receipt } from '@application/entities/Receipt';
 import { ReceiptExtractionFailed } from '@application/errors/application/ReceiptExtractionFailed';
 import { Injectable } from '@kernel/decorators/Injectable';
 import { AppConfig } from '@shared/config/AppConfig';
@@ -43,6 +44,48 @@ Exemplos:
 - "ACHOC PO NESCAU 380G" → "Achocolatado em Pó Nescau 380g"
 - "PAO FRANCES KG" → "Pão Francês"
 
+## category
+
+Classifique cada item em UMA das categorias abaixo. Use o significado do produto, não a seção da
+loja onde ele foi impresso no cupom.
+
+- PRODUCE — frutas, verduras, legumes, ovos in natura a granel
+- MEAT — carne bovina, suína, aves, linguiça fresca
+- SEAFOOD — peixes, camarão, frutos do mar
+- DELI — frios e embutidos fatiados: presunto, mortadela, salame, bacon, salsicha
+- DAIRY — leite, queijo, iogurte, manteiga, requeijão, creme de leite fresco, ovos em cartela
+- BAKERY — pães, bolos, tortas, biscoito de padaria, produtos da confeitaria
+- GRAINS — arroz, feijão, macarrão, farinha, açúcar, aveia, grãos secos
+- CANNED — enlatados e conservas: milho, ervilha, atum, sardinha, extrato de tomate
+- CONDIMENTS — óleo, azeite, vinagre, sal, temperos, molhos, maionese, ketchup
+- BREAKFAST — café, chá, achocolatado em pó, cereal matinal, geleia, leite condensado
+- SNACKS — chocolate, bala, biscoito industrializado, salgadinho, sorvete
+- FROZEN — congelados: nuggets, pizza, hambúrguer, legumes congelados, polpa
+- PREPARED_FOODS — rotisseria e pratos prontos vendidos quentes ou refrigerados
+- BEVERAGES — bebidas sem álcool: refrigerante, suco, água, energético, isotônico
+- ALCOHOL — cerveja, vinho, destilados, qualquer bebida alcoólica
+- CLEANING — detergente, sabão, desinfetante, amaciante, água sanitária, esponja
+- DISPOSABLES — papel higiênico, papel toalha, guardanapo, saco de lixo, papel alumínio
+- PERSONAL_CARE — shampoo, sabonete, creme dental, desodorante, absorvente, cosmético
+- PHARMACY — medicamentos, vitaminas, curativos, preservativos
+- BABY — fralda, lenço umedecido, papinha, fórmula infantil
+- PET — ração, areia sanitária, petisco e acessório para animais
+- HOUSEHOLD — bazar e utilidades: panela, lâmpada, pilha, ferramenta, utensílio
+- TOBACCO — cigarro, tabaco, isqueiro
+- OTHER — nada acima se aplica, ou o item não é identificável
+
+Desempates (siga à risca):
+- Leite condensado, creme de leite em caixinha e leite em pó vão para BREAKFAST, não DAIRY.
+- Sorvete e açaí vão para SNACKS, não FROZEN.
+- Pão de forma, bisnaguinha e torrada industrializados vão para BAKERY.
+- Biscoito doce ou salgado de pacote vai para SNACKS, não BAKERY.
+- Papel higiênico e guardanapo vão para DISPOSABLES, nunca CLEANING nem PERSONAL_CARE.
+- Sabão em pó vai para CLEANING; sabonete vai para PERSONAL_CARE.
+- Fralda vai para BABY mesmo sendo item de higiene.
+- Ração vai para PET mesmo sendo alimento.
+- Bebida alcoólica vai para ALCOHOL mesmo sendo cerveja sem álcool aparente no nome.
+- Sacola plástica, taxa e serviço vão para OTHER.
+
 Se a imagem não for um cupom fiscal, ou estiver ilegível a ponto de você não conseguir extrair
 os itens, devolva readable = false.`;
 
@@ -76,6 +119,11 @@ const RESPONSE_SCHEMA = {
 						type: 'string',
 						description: 'nome comercial padronizado do produto'
 					},
+					category: {
+						type: 'string',
+						enum: Object.values(Receipt.ProductCategory),
+						description: 'categoria do produto'
+					},
 					gtin: { type: 'string' },
 					merchantCode: { type: 'string' },
 					quantity: { type: 'string' },
@@ -88,6 +136,7 @@ const RESPONSE_SCHEMA = {
 					'seq',
 					'description',
 					'normalizedName',
+					'category',
 					'gtin',
 					'merchantCode',
 					'quantity',
@@ -113,6 +162,7 @@ const extractionSchema = z.object({
 			seq: z.int(),
 			description: z.string(),
 			normalizedName: z.string(),
+			category: z.enum(Receipt.ProductCategory),
 			gtin: z.string(),
 			merchantCode: z.string(),
 			quantity: z.string(),

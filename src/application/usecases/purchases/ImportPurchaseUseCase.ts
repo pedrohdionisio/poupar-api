@@ -1,3 +1,4 @@
+import { CategorySpend } from '@application/entities/CategorySpend';
 import { Merchant } from '@application/entities/Merchant';
 import { PricePoint } from '@application/entities/PricePoint';
 import { Purchase } from '@application/entities/Purchase';
@@ -8,11 +9,13 @@ import { ResourceAlreadyExists } from '@application/errors/application/ResourceA
 import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
 import { ImportPurchaseNormalizer } from '@application/normalizers/ImportPurchaseNormalizer';
 import { AccountProductRepository } from '@infra/database/dynamo/repositories/AccountProductRepository';
+import { CategorySpendRepository } from '@infra/database/dynamo/repositories/CategorySpendRepository';
 import { MerchantRepository } from '@infra/database/dynamo/repositories/MerchantRepository';
 import { PricePointRepository } from '@infra/database/dynamo/repositories/PricePointRepository';
 import { PurchaseDedupeRepository } from '@infra/database/dynamo/repositories/PurchaseDedupeRepository';
 import { PurchaseTransactionRepository } from '@infra/database/dynamo/repositories/PurchaseTransactionRepository';
 import { Injectable } from '@kernel/decorators/Injectable';
+import { getBrazilMonth } from '@shared/utils/getBrazilMonth';
 import { mapInBatches } from '@shared/utils/mapInBatches';
 
 const PROJECTION_BATCH_SIZE = 10;
@@ -24,14 +27,21 @@ export class ImportPurchaseUseCase {
 		private readonly purchaseTransactionRepository: PurchaseTransactionRepository,
 		private readonly purchaseDedupeRepository: PurchaseDedupeRepository,
 		private readonly accountProductRepository: AccountProductRepository,
-		private readonly pricePointRepository: PricePointRepository
+		private readonly pricePointRepository: PricePointRepository,
+		private readonly categorySpendRepository: CategorySpendRepository
 	) {}
 
 	async execute(
 		input: ImportPurchaseUseCase.Input
 	): Promise<ImportPurchaseUseCase.Output> {
-		const { items, itemCount } = ImportPurchaseNormalizer.normalize({
+		const normalized = ImportPurchaseNormalizer.normalize({
 			items: input.items
+		});
+		const itemCount = normalized.itemCount;
+
+		const items = await this.resolveCategories({
+			accountId: input.accountId,
+			items: normalized.items
 		});
 
 		const merchant = await this.loadMerchant({
@@ -116,6 +126,28 @@ export class ImportPurchaseUseCase {
 		};
 	}
 
+	private async resolveCategories({
+		accountId,
+		items
+	}: ImportPurchaseUseCase.ResolveCategoriesParams): Promise<Receipt.Item[]> {
+		const known = await this.accountProductRepository.getByProductKeys({
+			accountId,
+			productKeys: items.map((item) => item.productKey)
+		});
+
+		const categories = new Map(
+			known.map((accountProduct) => [
+				accountProduct.productKey,
+				accountProduct.category
+			])
+		);
+
+		return items.map((item) => ({
+			...item,
+			category: categories.get(item.productKey) ?? item.category
+		}));
+	}
+
 	private async applyProjections({
 		accountId,
 		purchaseId,
@@ -146,6 +178,12 @@ export class ImportPurchaseUseCase {
 				totalCents,
 				purchasedAt
 			}),
+			this.categorySpendRepository.applyPurchase({
+				accountId,
+				purchaseId,
+				month: getBrazilMonth({ date: purchasedAt }),
+				entries: CategorySpend.toEntries({ items })
+			}),
 			this.pricePointRepository.createMany({ pricePoints }),
 			mapInBatches({
 				items,
@@ -156,6 +194,7 @@ export class ImportPurchaseUseCase {
 						productKey: item.productKey,
 						name: item.displayName,
 						normalizedName: item.normalizedName,
+						category: item.category,
 						gtin: item.gtin,
 						unit: item.unit,
 						merchantId,
@@ -203,6 +242,11 @@ export namespace ImportPurchaseUseCase {
 		purchasedAt: Date;
 		itemCount: number;
 		totalCents: number;
+	};
+
+	export type ResolveCategoriesParams = {
+		accountId: string;
+		items: Receipt.Item[];
 	};
 
 	export type LoadMerchantParams = {

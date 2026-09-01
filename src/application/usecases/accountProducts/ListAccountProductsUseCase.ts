@@ -20,6 +20,8 @@ export class ListAccountProductsUseCase {
 			productKey: accountProduct.productKey,
 			name: accountProduct.name,
 			normalizedName: accountProduct.normalizedName,
+			category: accountProduct.category,
+			categorySource: accountProduct.categorySource,
 			gtin: accountProduct.gtin,
 			unit: accountProduct.unit,
 			lastUnitPriceCents: accountProduct.lastUnitPriceCents,

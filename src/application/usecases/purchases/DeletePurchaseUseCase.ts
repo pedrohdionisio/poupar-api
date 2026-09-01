@@ -1,11 +1,14 @@
+import { CategorySpend } from '@application/entities/CategorySpend';
 import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
 import { AccountProductRepository } from '@infra/database/dynamo/repositories/AccountProductRepository';
+import { CategorySpendRepository } from '@infra/database/dynamo/repositories/CategorySpendRepository';
 import { MerchantRepository } from '@infra/database/dynamo/repositories/MerchantRepository';
 import { PricePointRepository } from '@infra/database/dynamo/repositories/PricePointRepository';
 import { PurchaseRepository } from '@infra/database/dynamo/repositories/PurchaseRepository';
 import { PurchaseTransactionRepository } from '@infra/database/dynamo/repositories/PurchaseTransactionRepository';
 import { ReceiptRepository } from '@infra/database/dynamo/repositories/ReceiptRepository';
 import { Injectable } from '@kernel/decorators/Injectable';
+import { getBrazilMonth } from '@shared/utils/getBrazilMonth';
 import { mapInBatches } from '@shared/utils/mapInBatches';
 
 const REBUILD_BATCH_SIZE = 10;
@@ -18,6 +21,7 @@ export class DeletePurchaseUseCase {
 		private readonly pricePointRepository: PricePointRepository,
 		private readonly accountProductRepository: AccountProductRepository,
 		private readonly merchantRepository: MerchantRepository,
+		private readonly categorySpendRepository: CategorySpendRepository,
 		private readonly purchaseTransactionRepository: PurchaseTransactionRepository
 	) {}
 
@@ -62,6 +66,12 @@ export class DeletePurchaseUseCase {
 		const merchant = await this.merchantRepository.getById({
 			accountId: input.accountId,
 			id: purchase.merchantId
+		});
+
+		await this.categorySpendRepository.revertPurchase({
+			accountId: input.accountId,
+			month: getBrazilMonth({ date: purchase.purchasedAt }),
+			entries: CategorySpend.toEntries({ items: receipt?.items ?? [] })
 		});
 
 		await this.purchaseTransactionRepository.deleteCascade({

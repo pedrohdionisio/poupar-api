@@ -1,3 +1,4 @@
+import { Receipt } from '@application/entities/Receipt';
 import { Scan } from '@application/entities/Scan';
 import { ReceiptExtractionFailed } from '@application/errors/application/ReceiptExtractionFailed';
 import { ResourceNotFound } from '@application/errors/application/ResourceNotFound';
@@ -111,7 +112,8 @@ export class ProcessScanUseCase {
 
 		const draft = this.toDraft({
 			extraction,
-			namesByGtin: vocabulary.namesByGtin
+			namesByGtin: vocabulary.namesByGtin,
+			categoriesByName: vocabulary.categoriesByName
 		});
 
 		if (!draft) {
@@ -184,25 +186,34 @@ export class ProcessScanUseCase {
 			.slice(0, MAX_KNOWN_PRODUCTS);
 
 		const namesByGtin = new Map<string, string>();
+		const categoriesByName = new Map<string, Receipt.ProductCategory>();
 
 		for (const accountProduct of mostRecent) {
 			if (accountProduct.gtin) {
 				namesByGtin.set(accountProduct.gtin, accountProduct.name);
 			}
+
+			categoriesByName.set(accountProduct.name, accountProduct.category);
 		}
 
 		return {
 			knownProducts: mostRecent.map((accountProduct) => accountProduct.name),
-			namesByGtin
+			namesByGtin,
+			categoriesByName
 		};
 	}
 
 	private toDraft({
 		extraction,
-		namesByGtin
+		namesByGtin,
+		categoriesByName
 	}: ProcessScanUseCase.ToDraftParams): Scan.Draft | null {
 		try {
-			return ScanExtractionNormalizer.toDraft({ extraction, namesByGtin });
+			return ScanExtractionNormalizer.toDraft({
+				extraction,
+				namesByGtin,
+				categoriesByName
+			});
 		} catch {
 			return null;
 		}
@@ -247,6 +258,7 @@ export namespace ProcessScanUseCase {
 	export type Vocabulary = {
 		knownProducts: string[];
 		namesByGtin: Map<string, string>;
+		categoriesByName: Map<string, Receipt.ProductCategory>;
 	};
 
 	export type ToDraftParams = {
@@ -254,6 +266,7 @@ export namespace ProcessScanUseCase {
 			ReceiptExtractionGateway.ExtractResult['extraction']
 		>;
 		namesByGtin: Map<string, string>;
+		categoriesByName: Map<string, Receipt.ProductCategory>;
 	};
 
 	export type ExtractParams = {

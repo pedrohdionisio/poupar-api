@@ -25,12 +25,40 @@ export namespace Receipt {
 		L = 'L'
 	}
 
+	export enum ProductCategory {
+		PRODUCE = 'PRODUCE',
+		MEAT = 'MEAT',
+		SEAFOOD = 'SEAFOOD',
+		DELI = 'DELI',
+		DAIRY = 'DAIRY',
+		BAKERY = 'BAKERY',
+		GRAINS = 'GRAINS',
+		CANNED = 'CANNED',
+		CONDIMENTS = 'CONDIMENTS',
+		BREAKFAST = 'BREAKFAST',
+		SNACKS = 'SNACKS',
+		FROZEN = 'FROZEN',
+		PREPARED_FOODS = 'PREPARED_FOODS',
+		BEVERAGES = 'BEVERAGES',
+		ALCOHOL = 'ALCOHOL',
+		CLEANING = 'CLEANING',
+		DISPOSABLES = 'DISPOSABLES',
+		PERSONAL_CARE = 'PERSONAL_CARE',
+		PHARMACY = 'PHARMACY',
+		BABY = 'BABY',
+		PET = 'PET',
+		HOUSEHOLD = 'HOUSEHOLD',
+		TOBACCO = 'TOBACCO',
+		OTHER = 'OTHER'
+	}
+
 	export type Item = {
 		seq: number;
 		productKey: string;
 		description: string;
 		displayName: string;
 		normalizedName: string;
+		category: Receipt.ProductCategory;
 		gtin: string | null;
 		merchantCode: string | null;
 		quantityMilli: number;

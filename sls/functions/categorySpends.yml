@@ -1,0 +1,8 @@
+listCategorySpends:
+  handler: src/main/functions/categorySpends/listCategorySpends.handler
+  events:
+    - httpApi:
+        path: /category-spends
+        method: GET
+        authorizer:
+          name: CognitoAuthorizer

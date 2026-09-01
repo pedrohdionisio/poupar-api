@@ -10,6 +10,9 @@ const importPurchaseItemSchema = z.object({
 		.min(1, '"displayName" cannot be empty')
 		.nullish()
 		.default(null),
+	category: z
+		.enum(Receipt.ProductCategory)
+		.default(Receipt.ProductCategory.OTHER),
 	merchantCode: z
 		.string()
 		.min(1, '"merchantCode" cannot be empty')

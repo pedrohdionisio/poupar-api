@@ -6,3 +6,11 @@ listAccountProducts:
         method: GET
         authorizer:
           name: CognitoAuthorizer
+updateAccountProductCategory:
+  handler: src/main/functions/accountProducts/updateAccountProductCategory.handler
+  events:
+    - httpApi:
+        path: /account-products/{productKey}/category
+        method: PATCH
+        authorizer:
+          name: CognitoAuthorizer

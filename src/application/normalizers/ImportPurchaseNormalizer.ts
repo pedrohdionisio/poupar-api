@@ -27,6 +27,7 @@ export class ImportPurchaseNormalizer {
 					description: item.description,
 					displayName,
 					normalizedName,
+					category: item.category,
 					gtin: ImportPurchaseNormalizer.resolveGtin({ gtin: item.gtin }),
 					merchantCode: item.merchantCode?.trim() || null,
 					quantityMilli: item.quantityMilli,
@@ -120,6 +121,7 @@ export namespace ImportPurchaseNormalizer {
 		seq: number;
 		description: string;
 		displayName?: string | null;
+		category: Receipt.ProductCategory;
 		merchantCode: string | null;
 		gtin: string | null;
 		quantityMilli: number;

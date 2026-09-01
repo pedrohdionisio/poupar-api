@@ -7,6 +7,8 @@ export class AccountProduct {
 
 	name: string;
 	normalizedName: string;
+	category: Receipt.ProductCategory;
+	categorySource: AccountProduct.CategorySource;
 	gtin: string | null;
 	unit: Receipt.Unit;
 	lastUnitPriceCents: number;
@@ -24,6 +26,8 @@ export class AccountProduct {
 		this.productKey = attr.productKey;
 		this.name = attr.name;
 		this.normalizedName = attr.normalizedName;
+		this.category = attr.category;
+		this.categorySource = attr.categorySource;
 		this.gtin = attr.gtin;
 		this.unit = attr.unit;
 		this.lastUnitPriceCents = attr.lastUnitPriceCents;
@@ -40,11 +44,18 @@ export class AccountProduct {
 }
 
 export namespace AccountProduct {
+	export enum CategorySource {
+		AI = 'AI',
+		USER = 'USER'
+	}
+
 	export type Attributes = {
 		accountId: string;
 		productKey: string;
 		name: string;
 		normalizedName: string;
+		category: Receipt.ProductCategory;
+		categorySource: AccountProduct.CategorySource;
 		gtin: string | null;
 		unit: Receipt.Unit;
 		lastUnitPriceCents: number;

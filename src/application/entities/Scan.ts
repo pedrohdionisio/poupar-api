@@ -62,6 +62,7 @@ export namespace Scan {
 		seq: number;
 		description: string;
 		displayName: string;
+		category: Receipt.ProductCategory;
 		merchantCode: string | null;
 		gtin: string | null;
 		quantityMilli: number;
