@@ -8,7 +8,7 @@ export async function handler(event: CustomMessageTriggerEvent) {
 
 		const html = await render(ForgotPassword({ code }));
 
-		event.response.emailSubject = '🍽️ waitr | Recupere a sua conta!';
+		event.response.emailSubject = '🛒 poupar | Recupere a sua conta!';
 		event.response.emailMessage = html;
 	}
 

@@ -12,8 +12,8 @@ export function TailwindConfig({ children }: ITailwindConfigProps) {
 				theme: {
 					extend: {
 						colors: {
-							waitr: {
-								green: '#D73035'
+							poupar: {
+								green: '#2CBA80'
 							},
 							gray: {
 								600: '#A1A1AA'
