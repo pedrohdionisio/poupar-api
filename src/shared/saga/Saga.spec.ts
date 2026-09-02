@@ -3,16 +3,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Saga', () => {
 	beforeEach(() => {
-		vi.spyOn(console, 'log').mockImplementation(() => undefined);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	});
 
-	it('should return the result and keep compensations untouched on success', async () => {
+	it('should return the result without compensating on success', async () => {
 		const saga = new Saga();
 		const compensation = vi.fn(async () => undefined);
 
-		saga.addCompensations(compensation);
+		await expect(
+			saga.run(async () => {
+				saga.addCompensations(compensation);
 
-		await expect(saga.run(async () => 'done')).resolves.toBe('done');
+				return 'done';
+			})
+		).resolves.toBe('done');
 		expect(compensation).not.toHaveBeenCalled();
 	});
 
@@ -25,6 +29,8 @@ describe('Saga', () => {
 
 		await expect(
 			saga.run(async () => {
+				saga.addCompensations(compensation);
+
 				throw error;
 			})
 		).rejects.toBe(error);
@@ -63,5 +69,47 @@ describe('Saga', () => {
 
 		await expect(saga.compensate()).resolves.toBeUndefined();
 		expect(calls).toEqual(['first']);
+	});
+
+	it('should not compensate a previous successful run when a later run fails', async () => {
+		const saga = new Saga();
+		const firstCompensation = vi.fn(async () => undefined);
+		const secondCompensation = vi.fn(async () => undefined);
+
+		await saga.run(async () => {
+			saga.addCompensations(firstCompensation);
+		});
+
+		await expect(
+			saga.run(async () => {
+				saga.addCompensations(secondCompensation);
+
+				throw new Error('boom');
+			})
+		).rejects.toThrow('boom');
+
+		expect(firstCompensation).not.toHaveBeenCalled();
+		expect(secondCompensation).toHaveBeenCalledOnce();
+	});
+
+	it('should not run the same compensation twice across failed runs', async () => {
+		const saga = new Saga();
+		const compensation = vi.fn(async () => undefined);
+
+		await expect(
+			saga.run(async () => {
+				saga.addCompensations(compensation);
+
+				throw new Error('boom');
+			})
+		).rejects.toThrow('boom');
+
+		await expect(
+			saga.run(async () => {
+				throw new Error('boom again');
+			})
+		).rejects.toThrow('boom again');
+
+		expect(compensation).toHaveBeenCalledOnce();
 	});
 });

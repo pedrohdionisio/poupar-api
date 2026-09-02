@@ -5,6 +5,8 @@
 	"main": "index.js",
 	"scripts": {
 		"typecheck": "tsc --noEmit",
+		"lint": "biome check",
+		"lint:fix": "biome check --write",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},

@@ -12,6 +12,8 @@ export class Saga {
 	}
 
 	async run<TResult>(fn: () => Promise<TResult>) {
+		this.compensations = [];
+
 		try {
 			return await fn();
 		} catch (error) {
@@ -22,11 +24,15 @@ export class Saga {
 	}
 
 	async compensate() {
-		for await (const compensation of this.compensations) {
+		const compensations = this.compensations;
+
+		this.compensations = [];
+
+		for (const compensation of compensations) {
 			try {
 				await compensation();
 			} catch (error) {
-				console.log(error);
+				console.error(error);
 			}
 		}
 	}
