@@ -41,6 +41,11 @@ export class ImportPurchaseNormalizer {
 			}
 
 			previous.seq = Math.min(previous.seq, item.seq);
+			previous.gtin =
+				previous.gtin ??
+				ImportPurchaseNormalizer.resolveGtin({ gtin: item.gtin });
+			previous.merchantCode =
+				previous.merchantCode ?? (item.merchantCode?.trim() || null);
 			previous.quantityMilli += item.quantityMilli;
 			previous.totalCents += item.totalCents;
 			previous.discountCents += item.discountCents;

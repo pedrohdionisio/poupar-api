@@ -1,4 +1,9 @@
 {
+  "exclude": [
+    "node_modules",
+    "dist",
+    "vitest.config.mts"
+  ],
   "compilerOptions": {
     "jsx": "react",
     "outDir": "dist",
@@ -29,6 +34,9 @@
       ],
       "@infra/*": [
         "./src/infra/*"
+      ],
+      "@test/*": [
+        "./test/*"
       ]
     }
   }

@@ -30,7 +30,7 @@ export abstract class Controller<TType extends RouteType, TBody = undefined> {
 		};
 	}
 
-	public execute(
+	public async execute(
 		request: Controller.Request<TType>
 	): Promise<Controller.Response<TBody>> {
 		if (isAdminOnly(this)) {

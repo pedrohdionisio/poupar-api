@@ -168,9 +168,10 @@ export class ScanExtractionNormalizer {
 		const [year, month, day, hours, minutes, seconds] = parts.map((part) =>
 			Number(part ?? 0)
 		);
+		const fullYear = ScanExtractionNormalizer.toFullYear({ year: year! });
 
 		const timestamp = Date.UTC(
-			ScanExtractionNormalizer.toFullYear({ year: year! }),
+			fullYear,
 			month! - 1,
 			day!,
 			hours!,
@@ -178,13 +179,38 @@ export class ScanExtractionNormalizer {
 			seconds!
 		);
 
-		if (Number.isNaN(timestamp)) {
+		if (
+			!ScanExtractionNormalizer.isRealDate({
+				timestamp,
+				values: [fullYear, month!, day!, hours!, minutes!, seconds!]
+			})
+		) {
 			throw new ReceiptNotParsed();
 		}
 
 		return new Date(
 			timestamp + BRAZIL_OFFSET_IN_MINUTES * 60 * 1000
 		).toISOString();
+	}
+
+	private static isRealDate({
+		timestamp,
+		values
+	}: ScanExtractionNormalizer.IsRealDateParams): boolean {
+		if (Number.isNaN(timestamp)) {
+			return false;
+		}
+
+		const date = new Date(timestamp);
+
+		return [
+			date.getUTCFullYear(),
+			date.getUTCMonth() + 1,
+			date.getUTCDate(),
+			date.getUTCHours(),
+			date.getUTCMinutes(),
+			date.getUTCSeconds()
+		].every((value, index) => value === values[index]);
 	}
 
 	private static toFullYear({
@@ -221,6 +247,11 @@ export namespace ScanExtractionNormalizer {
 
 	export type ToIsoDateParams = {
 		value: string;
+	};
+
+	export type IsRealDateParams = {
+		timestamp: number;
+		values: number[];
 	};
 
 	export type ToFullYearParams = {

@@ -2,7 +2,7 @@ import { ErrorCode } from '../ErrorCode';
 import { HttpError } from './HttpError';
 
 export class Conflict extends HttpError {
-	public override statusCode = 400;
+	public override statusCode = 409;
 
 	public override code: ErrorCode;
 

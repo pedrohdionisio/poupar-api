@@ -2,7 +2,7 @@ import { ErrorCode } from '../ErrorCode';
 import { HttpError } from './HttpError';
 
 export class Forbbiden extends HttpError {
-	public override statusCode = 401;
+	public override statusCode = 403;
 
 	public override code: ErrorCode;
 
